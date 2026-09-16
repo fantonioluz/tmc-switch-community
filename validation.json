@@ -1,0 +1,23 @@
+{
+  "hyrule_doors_and_floors": {
+    "status": "confirmed_on_switch",
+    "reported_by": "maintainer",
+    "date": "2026-09-15"
+  },
+  "library_minish_dialogue": {
+    "status": "confirmed_on_switch",
+    "reported_by": "maintainer",
+    "date": "2026-09-16"
+  },
+  "lake_hylia_entry": {
+    "status": "confirmed_on_switch",
+    "reported_by": "maintainer",
+    "date": "2026-09-16"
+  },
+  "fresh_install": {
+    "status": "pending"
+  },
+  "new_icon_on_hardware": {
+    "status": "pending"
+  }
+}

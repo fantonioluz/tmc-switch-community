@@ -195,15 +195,16 @@ all: $(TARGET).nro
 nro: $(TARGET).nro
 
 # APP_TITLE is set per-REGION near the top of this file.
-APP_AUTHOR  := zeldaret/999sian â€” Switch port
-APP_VERSION := 0.1.0
-APP_ICON    := $(if $(wildcard icon.jpg),icon.jpg,$(LIBNX)/default_icon.jpg)
+APP_AUTHOR  := Switch Community contributors
+COMMUNITY_VERSION_FILE := $(ROOT)/../version.json
+APP_VERSION := $(shell python3 -c 'import json; print(json.load(open("$(COMMUNITY_VERSION_FILE)"))["version"])')
+APP_ICON    := $(ROOT)/../branding/icon.jpg
 
-$(TARGET).nacp:
+$(TARGET).nacp: Makefile $(COMMUNITY_VERSION_FILE)
 	@echo "[nacptool] $@"
 	@nacptool --create "$(APP_TITLE)" "$(APP_AUTHOR)" "$(APP_VERSION)" $@
 
-$(TARGET).nro: $(TARGET).elf $(TARGET).nacp
+$(TARGET).nro: $(TARGET).elf $(TARGET).nacp $(APP_ICON) Makefile
 	@echo "[elf2nro] $@ $(if $(ROMFS_ARG),(+romfs),)"
 	@elf2nro $< $@ --nacp=$(TARGET).nacp --icon=$(APP_ICON) $(ROMFS_ARG)
 

@@ -11,8 +11,9 @@ está incluída.** Cada jogador deve ter uma cópia original USA e fazer seu pr�
    e inicie Minish Cap — Switch Community.
 
 Se o jogo regenerar os assets, aguarde a conclusão. Faça backup de saves e
-configurações antes de atualizar. Os ajustes novos de biblioteca e Lake Hylia
-ainda aguardam confirmação no console.
+configurações antes de atualizar. O mantenedor confirmou as correções da biblioteca
+e de Lake Hylia no Switch em 16/09/2026. O NRO da versão 0.1.1 já inclui o ícone novo;
+para atalhos da tela inicial, consulte `docs/ICON.md` e use `branding/icon.jpg`.
 
 O ZIP inclui `docs/INSTALLATION.md` e `docs/ASSETS.md`. No repositório, os mesmos
 guias ficam na pasta `docs/` da raiz. `manifest.json` e `SHA256SUMS.txt` identificam

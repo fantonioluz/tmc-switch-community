@@ -6,7 +6,8 @@
 - [x] Organizar a distribuição local e o código-fonte.
 - [x] Corrigir a marca de script do Minish da biblioteca e adicionar teste comparativo com a ROM.
 - [x] Proteger consultas de sprites e contextos de NPCs para os caminhos de crash de Lake Hylia.
-- [ ] Confirmar no Switch a conversa na estante e a entrada em Lake Hylia pelo caminho relatado.
+- [x] Conversa na estante e acesso a Lake Hylia confirmados no Switch em 16/09/2026.
+- [x] Incorporar o ícone aprovado ao NRO e disponibilizar JPEG para atalhos.
 - [ ] Confirmar uma instalação nova com o NRO, os assets incluídos e o dump USA do jogador.
 - [ ] Registrar problemas encontrados conforme a campanha avança.
 - [ ] Testar entrada/saída de casas e dungeons, transições, saves e carregamento ao longo do jogo.

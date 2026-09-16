@@ -11,6 +11,7 @@ import subprocess
 import tempfile
 import zipfile
 from release_assets import asset_inventory
+from nro_branding import check_branding
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -44,11 +45,15 @@ def main():
     version = json.loads((ROOT / 'version.json').read_text())
     if not re.fullmatch(r'\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?', version['version']):
         parser.error('version.json must contain a semantic version')
+    icon = ROOT / 'branding/icon.jpg'
+    if not icon.is_file():
+        parser.error('Missing project icon: branding/icon.jpg')
     assets = asset_inventory(ROOT / 'release/switch/tmc/assets')
     destination = ROOT / 'release/switch/tmc/tmc.nro'
     destination.parent.mkdir(parents=True, exist_ok=True)
     if args.nro:
         metadata = inspect_nro(args.nro)
+        check_branding(args.nro, icon, version)
         if args.nro.resolve() != destination.resolve():
             shutil.copyfile(args.nro, destination)
     else:
@@ -60,9 +65,6 @@ def main():
                 parser.error(f'{tool} must be on PATH (devkitPro tools)')
         if not os.environ.get('DEVKITPRO'):
             parser.error('Set DEVKITPRO to your devkitPro installation')
-        icon = Path(os.environ['DEVKITPRO']) / 'libnx/default_icon.jpg'
-        if not icon.is_file():
-            parser.error(f'devkitPro default icon not found: {icon}')
         work = ROOT / '.local'
         work.mkdir(exist_ok=True)
         with tempfile.TemporaryDirectory(prefix='package-', dir=work) as temporary:
@@ -73,14 +75,19 @@ def main():
             # Runtime assets ship alongside the NRO in switch/tmc/assets/.
             subprocess.run(['elf2nro', str(elf), str(nro), f'--nacp={nacp}', f'--icon={icon}'], check=True)
             metadata = inspect_nro(nro)
+            check_branding(nro, icon, version)
             shutil.copyfile(nro, destination)
+    icon_metadata = check_branding(destination, icon, version)
+    validation = json.loads((ROOT / 'validation.json').read_text(encoding='utf-8'))
     provenance = json.loads((ROOT / 'source/UPSTREAM.json').read_text())
     manifest = {**version, 'file': 'switch/tmc/tmc.nro', **metadata,
                 'source_base_commit': provenance['base_commit'],
                 'includes_rom': False, 'includes_extracted_asset_cache': True,
                 'asset_source': 'Runtime asset files supplied by the maintainer',
                 'files': [{'file': 'switch/tmc/tmc.nro', **metadata}] + assets,
-                'first_install_hardware_validation': 'pending'}
+                'icon': {'file': 'branding/icon.jpg', **icon_metadata},
+                'validation': validation,
+                'first_install_hardware_validation': validation['fresh_install']['status']}
     (ROOT / 'release/manifest.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
     (ROOT / 'release/SHA256SUMS.txt').write_text(''.join(f"{item['sha256']}  {item['file']}\n" for item in manifest['files']), encoding='utf-8')
     dist = ROOT / 'dist'
@@ -88,6 +95,7 @@ def main():
     archive = dist / f"tmc-switch-community-{version['version']}-usa.zip"
     with zipfile.ZipFile(archive, 'w', compression=zipfile.ZIP_DEFLATED) as package:
         package.write(destination, 'switch/tmc/tmc.nro')
+        package.write(icon, 'branding/icon.jpg')
         for item in assets:
             package.write(ROOT / 'release' / item['file'], item['file'])
         for file, name in [('release/README.md', 'README.md'),
@@ -97,7 +105,7 @@ def main():
                            ('CREDITS.md', 'CREDITS.md'), ('LICENSE.md', 'LICENSE.md'),
                            ('THIRD_PARTY_NOTICES.md', 'THIRD_PARTY_NOTICES.md')]:
             package.write(ROOT / file, name)
-        for name in ('INSTALLATION.md', 'ASSETS.md', 'KNOWN_ISSUES.md', 'UPDATING.md', 'HYRULE_FIXES.md', 'NPC_FIXES.md', 'DEVELOPMENT.md', 'RELEASING.md'):
+        for name in ('INSTALLATION.md', 'ICON.md', 'ASSETS.md', 'KNOWN_ISSUES.md', 'UPDATING.md', 'HYRULE_FIXES.md', 'NPC_FIXES.md', 'DEVELOPMENT.md', 'RELEASING.md'):
             package.write(ROOT / 'docs' / name, 'docs/' + name)
         for file in sorted((ROOT / 'LICENSES').rglob('*')):
             if file.is_file():

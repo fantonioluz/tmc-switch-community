@@ -50,6 +50,9 @@ Com compiladores nativos GCC/G++ e Python no PATH, forneça o caminho de seu dum
 bash scripts/test_regressions.sh /caminho/para/baserom.gba
 ```
 
+Para verificar o empacotamento, incluindo a identidade do ícone e a versão embutida,
+execute `python scripts/test_tools.py`.
+
 Os testes usam ASan/UBSan para detectar acessos inválidos à memória. Não
 distribua a ROM junto aos testes. A suíte cobre pisos, portas, sobreposições,
 o Minish da biblioteca, limites de sprites de NPCs, contexto de Festari e caminhos

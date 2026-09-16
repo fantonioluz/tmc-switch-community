@@ -1,13 +1,13 @@
 {
   "name": "Minish Cap - Switch Community",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": "Switch Community contributors",
   "region": "USA",
   "rom_header": "BZME",
   "rom_sha1": "b4bd50e4131b027c334547b4524e2dbbd4227130",
   "file": "switch/tmc/tmc.nro",
-  "size": 12257477,
-  "sha256": "78951ccc4bb10ba9cffe95ad244c7285bd60385fee6c2c4a2f5c9f480dff9352",
+  "size": 12290254,
+  "sha256": "f2c8d9eb15fee625a2ce5e29a3822a5b271689f980655e1a0cd0ad3a3dd2ee82",
   "romfs_size": 0,
   "source_base_commit": "70e61b45c2203a220ead3c995a61b3119bf8b9c5",
   "includes_rom": false,
@@ -16,8 +16,8 @@
   "files": [
     {
       "file": "switch/tmc/tmc.nro",
-      "size": 12257477,
-      "sha256": "78951ccc4bb10ba9cffe95ad244c7285bd60385fee6c2c4a2f5c9f480dff9352",
+      "size": 12290254,
+      "sha256": "f2c8d9eb15fee625a2ce5e29a3822a5b271689f980655e1a0cd0ad3a3dd2ee82",
       "romfs_size": 0
     },
     {
@@ -135,5 +135,35 @@
       "entries": 2314
     }
   ],
+  "icon": {
+    "file": "branding/icon.jpg",
+    "width": 256,
+    "height": 256,
+    "size": 39062,
+    "sha256": "206f905a5e754848a2e9583cc9360f2c05036558ebe43f686c68c2a6ce1a184c"
+  },
+  "validation": {
+    "hyrule_doors_and_floors": {
+      "status": "confirmed_on_switch",
+      "reported_by": "maintainer",
+      "date": "2026-09-15"
+    },
+    "library_minish_dialogue": {
+      "status": "confirmed_on_switch",
+      "reported_by": "maintainer",
+      "date": "2026-09-16"
+    },
+    "lake_hylia_entry": {
+      "status": "confirmed_on_switch",
+      "reported_by": "maintainer",
+      "date": "2026-09-16"
+    },
+    "fresh_install": {
+      "status": "pending"
+    },
+    "new_icon_on_hardware": {
+      "status": "pending"
+    }
+  },
   "first_install_hardware_validation": "pending"
 }

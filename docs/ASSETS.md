@@ -54,7 +54,7 @@ Os arquivos `.gba`, saves e dados pessoais continuam excluídos.
 ## TODO
 
 - [ ] Confirmar instalação nova desse conjunto com o NRO atualizado no Switch.
-- [ ] Revalidar a biblioteca e Lake Hylia com o save do mantenedor.
+- [x] Biblioteca e Lake Hylia confirmados pelo mantenedor no Switch em 16/09/2026.
 
 ## Limitações e bugs
 

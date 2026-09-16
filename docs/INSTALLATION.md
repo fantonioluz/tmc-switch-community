@@ -66,6 +66,11 @@ Evite iniciar pelo Álbum: o modo applet oferece memória limitada.
 A pasta `assets/` fornecida vai no SD junto do executável. Outros dados de execução,
 como `rom_data/`, saves e configurações, são locais e não fazem parte do pacote.
 
+## Ícone e atalho na tela inicial
+
+O NRO inclui o ícone próprio do projeto. Para criar ou atualizar um atalho,
+veja [Ícone e atalhos](ICON.md).
+
 ## Controles básicos
 
 | Switch | Ação |
@@ -84,7 +89,7 @@ O save principal é `SD:/switch/tmc/tmc.sav`. Faça backup da pasta inteira ante
 de atualizar. Não é necessário apagar seu save para instalar esta edição.
 
 As correções anteriores de portas e pisos foram confirmadas em hardware.
-Os ajustes da biblioteca e de Lake Hylia ainda aguardam confirmação no console. O pacote público inclui
+A conversa na biblioteca e o acesso a Lake Hylia foram confirmados pelo mantenedor no Switch em 16/09/2026. O pacote público inclui
 os assets enviados pelo mantenedor. Uma instalação nova com esse conjunto e
 o NRO atualizado ainda precisa de confirmação no Switch.
 

@@ -1,5 +1,18 @@
 # Histórico de mudanças
 
+## 0.1.1 — 2026-09-16
+
+- Ícone aprovado de Ezlo incorporado ao NRO como JPEG RGB de 256×256.
+- JPEG incluído no pacote para ferramentas de criação de atalhos da tela inicial.
+- Makefile e empacotador usam o ícone do projeto e a versão de `version.json`.
+- Verificação do ícone e dos dados de nome, autor e versão realmente embutidos no NRO.
+- Conversa do Minish da biblioteca e acesso a Lake Hylia confirmados no Switch pelo mantenedor em 16/09/2026.
+- README, instalação, roadmap e notas de validação atualizados.
+
+O código executável do jogo e os 21 assets são os mesmos da versão 0.1.0;
+esta versão muda o ícone, os metadados e a documentação. Uma instalação nova
+e a aparência do ícone no console continuam pendentes de confirmação.
+
 ## 0.1.0 — 2026-09-16
 
 Primeira versão local da Switch Community Edition. A publicação no GitHub é feita pelo mantenedor.
@@ -31,7 +44,7 @@ Primeira versão local da Switch Community Edition. A publicação no GitHub é 
 - 15 portas, 2 scripts e 32 casos de sobreposição aprovados.
 - Teste da entidade da biblioteca contra a ROM e 512 consultas de tipos de NPC com ASan/UBSan.
 - Teste de contexto ausente/desatualizado de Festari e de caminhos de assets no Switch.
-- Biblioteca e Lake Hylia: implementação e testes concluídos; reprodução no console ainda pendente.
+- No lançamento de 0.1.0, biblioteca e Lake Hylia aguardavam teste no console. A confirmação posterior está registrada em 0.1.1.
 - Estrutura dos 9 PAKs e leitura dos 12 JSONs verificadas; cópias conferidas por SHA-256.
 - Primeira instalação do NRO atualizado com os assets fornecidos: ainda precisa de confirmação em hardware.
 

@@ -10,9 +10,10 @@ git clone https://github.com/fantonioluz/tmc-switch-community.git
 cd tmc-switch-community
 ```
 
-A primeira publicação usa a tag `v0.1.0`, marcada como pré-lançamento enquanto
-a instalação nova e os ajustes de biblioteca/Lake Hylia aguardam confirmação no console.
-As próximas versões devem registrar os resultados desses testes.
+A versão atual é `v0.1.1`, com o novo ícone e as correções de biblioteca/Lake Hylia
+confirmadas pelo mantenedor. A versão `v0.1.0` permanece como pré-lançamento histórico.
+Registre em `validation.json` os resultados de testes, sem confundir correções
+confirmadas com uma campanha completa ou uma instalação nova.
 
 Esta edição é um snapshot derivado dos projetos creditados, com layout próprio;
 não usa a relação visual de Fork do GitHub. As origens estão em `source/UPSTREAM.json`.
@@ -32,9 +33,10 @@ python scripts/package_release.py --elf source/platforms/switch/tmc_switch_usa.e
 ```
 
 Para gerar o NRO de um ELF, o empacotador precisa de `elf2nro` e `nacptool` no PATH
-e de `DEVKITPRO` para o ícone padrão. Para apenas refazer o ZIP com um NRO pronto,
+e de `DEVKITPRO` para localizar as ferramentas. O ícone é `branding/icon.jpg`. Para apenas refazer o ZIP com um NRO pronto,
 use `python scripts/package_release.py --nro release/switch/tmc/tmc.nro`;
-nesse modo, basta Python. Ele cria `release/switch/tmc/tmc.nro`, `release/manifest.json`,
+nesse modo, basta Python. A versão, o nome e o ícone já embutidos no NRO devem
+corresponder aos arquivos atuais; o empacotador rejeita um NRO desatualizado. Ele cria `release/switch/tmc/tmc.nro`, `release/manifest.json`,
 `release/SHA256SUMS.txt` e o ZIP em `dist/`. Os assets ficam externos ao NRO,
 em `switch/tmc/assets/`. O empacotador exige os 21 arquivos de `scripts/release_assets.py`,
 verifica a estrutura dos PAKs e registra o SHA-256 de cada arquivo. O conjunto de
@@ -58,4 +60,4 @@ acrescenta o próprio `baserom.gba` no SD.
 - [x] Testes de regressão implementados.
 - [x] Pacote com NRO e assets externos preparado, sem ROM.
 - [ ] Confirmar uma primeira instalação desse pacote no Switch, usando os assets incluídos.
-- [x] Preparar a publicação em `fantonioluz/tmc-switch-community`, com tag `v0.1.0`.
+- [x] Preparar a publicação em `fantonioluz/tmc-switch-community`, com tags por versão.

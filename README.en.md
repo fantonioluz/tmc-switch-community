@@ -1,5 +1,7 @@
 # Minish Cap — Switch Community Edition
 
+<p align="center"><img src="branding/icon.jpg" width="256" height="256" alt="Minish Cap icon with Ezlo and the sword"></p>
+
 [Português](README.md)
 
 A Nintendo Switch native port maintained through fixes found during regular
@@ -9,13 +11,13 @@ maintainer confirmed those gameplay fixes on Switch on September 15, 2026.
 
 The library Minish script flag is now restored from the USA ROM. NPC sprite
 bounds and script-context guards address crash paths documented by the reference
-edition for Lake Hylia. Automated checks pass; both new gameplay fixes still
-need confirmation on Switch. See [NPC investigation](docs/NPC_FIXES.md).
+edition for Lake Hylia. The maintainer confirmed both fixes on Switch on
+September 16, 2026. Version 0.1.1 embeds the new Ezlo icon in the NRO. See [NPC investigation](docs/NPC_FIXES.md).
 
 ## Play
 
 1. Use a Switch already set up to run homebrew.
-2. Download the [v0.1.0 package](https://github.com/fantonioluz/tmc-switch-community/releases/download/v0.1.0/tmc-switch-community-0.1.0-usa.zip), or copy `release/switch/` to your SD.
+2. Download the [v0.1.1 package](https://github.com/fantonioluz/tmc-switch-community/releases/download/v0.1.1/tmc-switch-community-0.1.1-usa.zip), or copy `release/switch/` to your SD.
 3. Dump your own original **USA** cartridge and place the dump at
    `SD:/switch/tmc/baserom.gba` beside `tmc.nro`.
 4. Open Homebrew Menu in application mode (hold **R** while launching an installed

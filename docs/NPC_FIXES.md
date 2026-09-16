@@ -34,9 +34,10 @@ O código desta base ainda tinha acessos equivalentes sem proteção. Adicionamo
 limites às consultas de Townsperson/Kid e usamos a tabela nativa de contextos
 de script de Festari/Stockwell, limpando-a ao excluir entidades.
 
-Não houve captura do crash deste jogador. Esses caminhos são candidatos
-fundamentados no código e na referência; a causa exata desse relato continua
-dependente da reprodução no console.
+Em 16/09/2026, o mantenedor testou e confirmou que a conversa na biblioteca
+e o acesso a Lake Hylia funcionaram no Switch. Não houve captura do crash antigo;
+essa confirmação valida o resultado observado, sem isolar qual dos caminhos
+protegidos causava aquele crash.
 
 ## Plano
 
@@ -71,8 +72,8 @@ nos outros sistemas operacionais, o comportamento anterior foi preservado.
 
 ## TODO
 
-- [ ] Confirmar conversa com o primeiro Minish da estante no save do jogador.
-- [ ] Repetir entrada/saída de Lake Hylia pela mesma rota que causava o crash.
+- [x] Conversa com o Minish da estante confirmada pelo mantenedor em 16/09/2026.
+- [x] Fix de Lake Hylia confirmado pelo mantenedor em 16/09/2026.
 - [ ] Confirmar instalação nova com ROM USA e os assets incluídos; testar também a regeneração sem cache.
 - [ ] Se o crash continuar, registrar passos exatos e analisar o log/crash dump antes de atribuir outra causa.
 
@@ -80,5 +81,6 @@ nos outros sistemas operacionais, o comportamento anterior foi preservado.
 
 A proteção de índices evita a leitura inválida; ela não determina por que um
 tipo inesperado pode chegar a essa tabela. Não foi incorporada uma migração
-completa de todas as estruturas de NPCs da edição de referência. Testes de
-memória e compilação aprovados não significam campanha ou hardware validados.
+completa de todas as estruturas de NPCs da edição de referência. As duas correções foram
+confirmadas pelo mantenedor no Switch. A campanha completa e uma instalação nova
+continuam em validação.

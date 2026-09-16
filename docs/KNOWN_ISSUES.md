@@ -7,14 +7,20 @@
 
 Confirmação do mantenedor em 15/09/2026. Detalhes em [Correções de Hyrule](HYRULE_FIXES.md).
 
-## Implementado, aguardando confirmação no console
+## Biblioteca e Lake Hylia confirmados no Switch
 
-- Biblioteca: corrigida a marca de script do primeiro Minish da estante, comparada com a ROM USA.
-- Lake Hylia: adicionadas proteções para os acessos a sprites e contextos de NPCs descritos pela edição de referência. Sem um crash dump deste relato, não é possível afirmar que a causa observada pelo jogador era exatamente a mesma.
-- Primeira instalação: corrigida a formação dos caminhos de assets com prefixo `sdmc:`.
+- Biblioteca: o mantenedor confirmou em 16/09/2026 que o Minish da estante permite conversar.
+- Lake Hylia: o mantenedor confirmou em 16/09/2026 que o fix funcionou ao acessar a área.
 
-Os testes de memória passaram. Eles não substituem entrar em Lake Hylia e conversar
-com o Minish no Switch. Veja [Investigação dos NPCs](NPC_FIXES.md).
+Os testes de memória também passaram. A confirmação é do comportamento corrigido;
+sem crash dump anterior, não isolamos qual proteção eliminou aquele crash.
+Veja [Investigação dos NPCs](NPC_FIXES.md).
+
+## Ícone da versão 0.1.1
+
+O JPEG aprovado está embutido no NRO, e sua identidade foi verificada byte a byte.
+A aparência do novo ícone no console e em um atalho ainda precisa de confirmação.
+Veja [Ícone e atalhos](ICON.md).
 
 ## Limitações atuais
 

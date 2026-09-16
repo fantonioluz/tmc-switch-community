@@ -17,6 +17,11 @@ Mantenha apenas um atalho do port no Homebrew Menu para não abrir a versão ant
 por engano. Um forwarder existente pode apontar para outro nome: ajuste-o para
 `/switch/tmc/tmc.nro` conforme a ferramenta que você utiliza.
 
+## Ícone de um atalho já instalado
+
+Para exibir a nova arte na tela inicial, recrie o atalho com o NRO da versão 0.1.1
+ou importe `branding/icon.jpg` no criador de atalhos. Veja [Ícone e atalhos](ICON.md).
+
 ## Assets e configurações
 
 Os assets do pacote são o cache fornecido pelo mantenedor. Use o conjunto da

@@ -6,6 +6,7 @@ from urllib.parse import unquote
 
 from package_release import ROOT, inspect_nro
 from release_assets import asset_inventory
+from nro_branding import check_branding
 
 
 def main():
@@ -17,6 +18,9 @@ def main():
     for field in ('size', 'sha256', 'romfs_size'):
         assert manifest[field] == actual[field], f'Manifest mismatch: {field}'
     assert manifest['version'] == version['version']
+    icon = check_branding(path, ROOT / 'branding/icon.jpg', version)
+    assert manifest['icon'] == {'file': 'branding/icon.jpg', **icon}
+    assert manifest['validation'] == json.loads((ROOT / 'validation.json').read_text())
     assert not manifest['includes_rom'] and manifest['includes_extracted_asset_cache']
     files = [{'file': manifest['file'], **actual}] + asset_inventory(ROOT / 'release/switch/tmc/assets')
     assert manifest['files'] == files, 'Asset inventory or hashes mismatch'

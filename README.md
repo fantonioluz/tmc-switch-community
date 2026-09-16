@@ -1,5 +1,7 @@
 # Minish Cap — Switch Community Edition
 
+<p align="center"><img src="branding/icon.jpg" width="256" height="256" alt="Ícone de Minish Cap com Ezlo e a espada"></p>
+
 Um port nativo de **The Legend of Zelda: The Minish Cap** para Nintendo Switch,
 mantido a partir de melhorias encontradas durante as partidas.
 
@@ -15,7 +17,7 @@ A ROM não está incluída: cada jogador coloca seu próprio dump na pasta do jo
 
 ## Como jogar
 
-1. Baixe o [pacote v0.1.0](https://github.com/fantonioluz/tmc-switch-community/releases/download/v0.1.0/tmc-switch-community-0.1.0-usa.zip), ou use a pasta
+1. Baixe o [pacote v0.1.1](https://github.com/fantonioluz/tmc-switch-community/releases/download/v0.1.1/tmc-switch-community-0.1.1-usa.zip), ou use a pasta
    [`release/switch/tmc/`](release/switch/tmc/) deste repositório.
 2. Copie a pasta `switch` do pacote para a raiz do cartão SD.
 3. Coloque o dump USA do seu cartucho em `switch/tmc/`, com o nome `baserom.gba`.
@@ -41,7 +43,8 @@ abrir pelo Álbum oferece memória limitada. Consulte o [guia completo](docs/INS
 - Port nativo para Switch baseado nos projetos listados em [Créditos](CREDITS.md).
 - Correção do carregamento das posições das portas de Hyrule.
 - Correção da interação que apagava pisos e criava espadas indevidamente.
-- Ajuste do script de conversa do Minish da biblioteca e proteções de NPCs para Lake Hylia, com confirmação no console pendente.
+- Conversa do Minish da biblioteca e acesso a Lake Hylia corrigidos, confirmados pelo mantenedor no Switch em 16/09/2026.
+- Ícone próprio de Ezlo embutido no NRO e disponível para criação de atalhos.
 - Testes para preservar essas correções nas próximas versões.
 - Código-fonte da edição em [`source/`](source/), com as dependências locais usadas pelo port.
 
@@ -56,7 +59,7 @@ são anunciados como recursos desta edição.
 | ROM de referência | USA, cabeçalho `BZME` |
 | SHA-1 do dump de referência | `b4bd50e4131b027c334547b4524e2dbbd4227130` |
 | Portas e pisos em Hyrule | Correções confirmadas pelo mantenedor no Switch |
-| Biblioteca e Lake Hylia | Correções aplicadas e testes de memória aprovados; confirmação no console pendente |
+| Biblioteca e Lake Hylia | Correções confirmadas pelo mantenedor no Switch em 16/09/2026 |
 | Pacote com NRO e assets | Integridade e estrutura verificadas; primeira instalação deste conjunto no Switch ainda precisa de confirmação |
 | Outras regiões e ROMs modificadas | Não validadas nesta edição |
 | Jogo completo | Em validação conforme o mantenedor joga |

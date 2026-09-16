@@ -1,4 +1,6 @@
 import struct
+import json
+from nro_branding import check_branding, check_jpeg
 import tempfile
 from pathlib import Path
 import unittest
@@ -75,6 +77,50 @@ class PackageChecks(unittest.TestCase):
             (folder / 'baserom.gba').write_bytes(b'test only, not a ROM')
             with self.assertRaisesRegex(ValueError, 'Asset set mismatch'):
                 asset_inventory(folder)
+
+
+    def branded_nro(self, version='0.1.1', icon=None):
+        if icon is None:
+            icon = (ROOT / 'branding/icon.jpg').read_bytes()
+        nacp = bytearray(0x4000)
+        expected = json.loads((ROOT / 'version.json').read_text())
+        for offset, value in ((0, expected['name']), (0x200, expected['author']), (0x3060, version)):
+            encoded = value.encode('utf-8')
+            nacp[offset:offset + len(encoded)] = encoded
+        base = bytearray(0x80)
+        base[0x10:0x14] = b'NRO0'
+        struct.pack_into('<I', base, 0x18, 0x80)
+        header = b'ASET' + struct.pack('<I6Q', 0, 56, len(icon), 56 + len(icon), len(nacp), 0, 0)
+        return base + header + icon + nacp
+
+    def check_branded_file(self, data):
+        with tempfile.TemporaryDirectory(dir=self.work) as directory:
+            path = Path(directory) / 'sample.nro'
+            path.write_bytes(data)
+            return check_branding(path, ROOT / 'branding/icon.jpg', json.loads((ROOT / 'version.json').read_text()))
+
+    def test_accepts_embedded_project_icon_and_version(self):
+        current = json.loads((ROOT / 'version.json').read_text())['version']
+        self.assertEqual(self.check_branded_file(self.branded_nro(current))['width'], 256)
+
+    def test_rejects_old_embedded_version(self):
+        with self.assertRaisesRegex(ValueError, 'version differs'):
+            self.check_branded_file(self.branded_nro('0.0.0'))
+
+    def test_rejects_different_embedded_icon(self):
+        icon = bytearray((ROOT / 'branding/icon.jpg').read_bytes())
+        # Change a byte inside a quantization table, retaining a valid JPEG header.
+        table = icon.index(b'\xff\xdb')
+        icon[table + 5] ^= 1
+        with self.assertRaisesRegex(ValueError, 'different icon'):
+            self.check_branded_file(self.branded_nro(icon=icon))
+
+    def test_rejects_wrong_icon_dimensions(self):
+        icon = bytearray((ROOT / 'branding/icon.jpg').read_bytes())
+        frame = icon.index(b'\xff\xc0')
+        struct.pack_into('>H', icon, frame + 5, 128)
+        with self.assertRaisesRegex(ValueError, '256x256'):
+            check_jpeg(icon)
 
 
 if __name__ == '__main__':
