@@ -1,0 +1,47 @@
+# Minish Cap — Switch Community Edition
+
+[Português](README.md)
+
+A Nintendo Switch native port maintained through fixes found during regular
+play. This edition starts with fixes for Hyrule door positions and the broken
+floor interaction that created black tiles and a sword beside doors. The
+maintainer confirmed those gameplay fixes on Switch on September 15, 2026.
+
+The library Minish script flag is now restored from the USA ROM. NPC sprite
+bounds and script-context guards address crash paths documented by the reference
+edition for Lake Hylia. Automated checks pass; both new gameplay fixes still
+need confirmation on Switch. See [NPC investigation](docs/NPC_FIXES.md).
+
+## Play
+
+1. Use a Switch already set up to run homebrew.
+2. Download the [v0.1.0 package](https://github.com/fantonioluz/tmc-switch-community/releases/download/v0.1.0/tmc-switch-community-0.1.0-usa.zip), or copy `release/switch/` to your SD.
+3. Dump your own original **USA** cartridge and place the dump at
+   `SD:/switch/tmc/baserom.gba` beside `tmc.nro`.
+4. Open Homebrew Menu in application mode (hold **R** while launching an installed
+   title), then launch the port.
+5. Keep the included `assets/` folder beside the NRO. If the game regenerates the cache, let it finish.
+
+The package includes the NRO and 21 runtime asset files supplied by the maintainer.
+No ROM is included; each player supplies their own cartridge dump. The USA reference
+header is `BZME`, with SHA-1 `b4bd50e4131b027c334547b4524e2dbbd4227130`.
+Other regions and patched ROMs are not validated. Documentation language does
+not change the game's dialogue language.
+
+Back up `SD:/switch/tmc/` before updating. Copy the package's NRO and `assets/`
+folder, preserving your ROM, `tmc.sav`, and configuration. A clean installation
+of this exact package still needs real-hardware confirmation. The earlier door
+and floor fixes were confirmed using the maintainer's existing installation.
+
+## Development
+
+The working source snapshot is in [`source/`](source/), including the local
+dependency sources. See [development](docs/DEVELOPMENT.md),
+[release preparation](docs/RELEASING.md), [credits](CREDITS.md),
+[licenses](LICENSE.md), and [known issues](docs/KNOWN_ISSUES.md).
+
+The repository layout and NPC/first-install crash investigation were informed by
+[Alek's Ultimate NX Edition](https://github.com/Alexgg1014/The-Legend-of-Zelda-The-Minish-Cap-Alek-s-Ultimate-NX-Edition).
+Its exclusive features are not claimed by this separate edition.
+
+This is an unofficial fan project, unaffiliated with Nintendo or Capcom.

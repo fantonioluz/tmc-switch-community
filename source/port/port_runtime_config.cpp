@@ -1,0 +1,654 @@
+#include "port_runtime_config.h"
+
+#include <SDL3/SDL.h>
+#include <array>
+#include <cstdint>
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
+#include <nlohmann/json.hpp>
+#include <string>
+#include <vector>
+
+namespace {
+
+struct Bind {
+    SDL_Keycode key = SDLK_UNKNOWN;
+    SDL_GamepadButton pad = SDL_GAMEPAD_BUTTON_INVALID;
+    /* Triggers (L2/R2 on Xbox/PS pads) are reported by SDL as analog axes,
+     * not buttons, so the bind table allows binding to an axis. A value
+     * past kAxisThreshold counts as "pressed". */
+    SDL_GamepadAxis axis = SDL_GAMEPAD_AXIS_INVALID;
+};
+
+constexpr Sint16 kAxisThreshold = 16384;
+
+struct Def {
+    PortInput input;
+    const char* name;
+    std::initializer_list<const char*> binds;
+};
+
+const std::array<Def, PORT_INPUT_COUNT> kDefaults = {{
+    /* Face buttons follow the NINTENDO physical layout, not SDL's position-based
+     * one: SDL_GAMEPAD_BUTTON_SOUTH (0x0, bottom) is physically labelled "B" on a
+     * Switch pad, and EAST (0x1, right) is "A". Map A→EAST and B→SOUTH so the
+     * in-game A/B match the buttons printed on the controller. (Keyboard binds
+     * x/z unchanged.) */
+    { PORT_INPUT_A, "a", { "SDLK:0x00000078", "SDL_GAMEPAD:0x00000001" } },
+    { PORT_INPUT_B, "b", { "SDLK:0x0000007a", "SDL_GAMEPAD:0x00000000" } },
+    { PORT_INPUT_SELECT, "select", { "SDLK:0x00000008", "SDL_GAMEPAD:0x00000004" } },
+    { PORT_INPUT_START, "start", { "SDLK:0x0000000d", "SDL_GAMEPAD:0x00000006" } },
+    { PORT_INPUT_RIGHT, "right", { "SDLK:0x4000004f", "SDL_GAMEPAD:0x0000000e" } },
+    { PORT_INPUT_LEFT, "left", { "SDLK:0x40000050", "SDL_GAMEPAD:0x0000000d" } },
+    { PORT_INPUT_UP, "up", { "SDLK:0x40000052", "SDL_GAMEPAD:0x0000000b" } },
+    { PORT_INPUT_DOWN, "down", { "SDLK:0x40000051", "SDL_GAMEPAD:0x0000000c" } },
+    { PORT_INPUT_R, "r", { "SDLK:0x00000073", "SDL_GAMEPAD:0x0000000a" } },
+    { PORT_INPUT_L, "l", { "SDLK:0x00000061", "SDL_GAMEPAD:0x00000009" } },
+    /* Soft-slots: keyboard CV/QE + face-buttons WEST/NORTH + triggers L2/R2.
+     * Numeric values: SDL_GAMEPAD_BUTTON_WEST=2, NORTH=3,
+     * SDL_GAMEPAD_AXIS_LEFT_TRIGGER=4, RIGHT_TRIGGER=5. */
+    { PORT_INPUT_SOFT_X,  "soft_x",  { "SDLK:0x00000063", "SDL_GAMEPAD:0x00000002" } },
+    { PORT_INPUT_SOFT_Y,  "soft_y",  { "SDLK:0x00000076", "SDL_GAMEPAD:0x00000003" } },
+    { PORT_INPUT_SOFT_L2, "soft_l2", { "SDLK:0x00000071", "SDL_AXIS:0x00000004" } },
+    { PORT_INPUT_SOFT_R2, "soft_r2", { "SDLK:0x00000065", "SDL_AXIS:0x00000005" } },
+}};
+
+u8 sScale = 3;
+u8 sInternalScale = 1;
+std::string sUpscaleMethod = "nearest";
+u64 sFrameTimeNs = 0;
+bool sPortSettingsMenuEnabled = true;
+bool sShowFps = false;
+/* FPS counter placement/size (issues #5/#6). Corner is 0=TL 1=TR 2=BL 3=BR;
+ * scale is an extra multiplier on top of the resolution-derived font scale so
+ * the counter can be made bigger/smaller independently of the menu overlay. */
+int sFpsCorner = 0;
+int sFpsScale = 1;
+/* Dark semi-transparent panel behind the FPS counter for legibility over
+ * bright backgrounds (off by default). */
+bool sFpsBackground = false;
+/* RetroAchievements unlock-toast visual style (issue #12 overlay work). One of
+ * 6 variants ported from the web mockup; 0=Pilula 1=Cartao 2=Minimo 3=Brilho
+ * 4=Medalha 5=Vitral. Default Cartao (the most complete: progress + rarity). */
+int sRaOverlayVariant = 1;
+/* Overlay UI language: 0 = English, 1 = Português. Defaults to the console
+ * language on first run (see Port_Config_DefaultLanguage), then persists. */
+int sLanguage = -1; /* -1 = not yet resolved; resolved on first access/load */
+std::array<std::vector<Bind>, PORT_INPUT_COUNT> sBinds;
+/* Edge-detection cache. Set when the corresponding SDL key/button event
+ * arrives during the frame; cleared by Port_Config_ClearInputEdges()
+ * after KEYINPUT is committed. Catches sub-frame taps (press+release
+ * between two polls) that the polled-state path would otherwise miss
+ * — useful for frame-perfect rolls / spin-attack inputs. */
+std::array<bool, PORT_INPUT_COUNT> sEdgePressed{};
+std::vector<SDL_Gamepad*> sPads;
+std::filesystem::path sConfigPath = "config.json";
+nlohmann::json sConfigJson;
+const std::array<u32, 9> kFpsPresets = { 0, 30, 60, 75, 90, 120, 144, 150, 240 };
+
+nlohmann::json DefaultsJson(void) {
+    nlohmann::json j = {
+        { "window_scale", 3 },
+        { "internal_scale", 1 },
+        { "upscale_method", "nearest" },
+        { "frame_time_ns", 0 },
+        { "port_settings_menu", true },
+        { "show_fps", false },
+        { "fps_corner", 0 },
+        { "fps_scale", 1 },
+        { "fps_background", false },
+        { "ra_overlay_variant", 1 },
+        { "bindings", nlohmann::json::object() },
+    };
+    for (const auto& d : kDefaults) {
+        j["bindings"][d.name] = nlohmann::json::array();
+        for (const char* bind : d.binds) {
+            j["bindings"][d.name].push_back(bind);
+        }
+    }
+    return j;
+}
+
+void AddBind(PortInput input, const std::string& name) {
+    Bind b;
+    if (name.rfind("SDLK:", 0) == 0) {
+        b.key = static_cast<SDL_Keycode>(std::strtoul(name.c_str() + 5, nullptr, 0));
+        sBinds[input].push_back(b);
+    } else if (name.rfind("SDL_GAMEPAD:", 0) == 0) {
+        b.pad = static_cast<SDL_GamepadButton>(std::strtoul(name.c_str() + 12, nullptr, 0));
+        sBinds[input].push_back(b);
+    } else if (name.rfind("SDL_AXIS:", 0) == 0) {
+        b.axis = static_cast<SDL_GamepadAxis>(std::strtoul(name.c_str() + 9, nullptr, 0));
+        sBinds[input].push_back(b);
+    }
+}
+
+void LoadBinds(PortInput input, const nlohmann::json& v) {
+    if (v.is_string()) {
+        AddBind(input, v.get<std::string>());
+    } else if (v.is_array()) {
+        for (const auto& it : v) {
+            if (it.is_string()) {
+                AddBind(input, it.get<std::string>());
+            }
+        }
+    }
+}
+
+void SaveConfig(void) {
+    try {
+        std::ofstream(sConfigPath) << sConfigJson.dump(4) << '\n';
+    } catch (...) {
+    }
+}
+
+u64 FrameTimeForFps(u32 fps) {
+    if (fps == 0) {
+        return 0;
+    }
+    if (fps > 1000) {
+        fps = 1000;
+    }
+    return 1000000000ULL / fps;
+}
+
+} 
+
+#ifdef __SWITCH__
+/* switch-sdl2 (SDL2) uses device-index semantics for opening controllers,
+ * unlike SDL3's instance-id model. The Switch presents Joy-Con/Pro/handheld
+ * as game controllers at stable device indices, so open by index and keep
+ * the handle in sPads for polling. Controllers are present at boot and stay,
+ * so add/remove churn is not tracked. */
+static SDL_Gamepad* OpenGamepad(int device_index) {
+    if (!SDL_IsGameController(device_index)) {
+        return nullptr;
+    }
+    SDL_Gamepad* pad = SDL_GameControllerOpen(device_index);
+    if (pad) {
+        for (SDL_Gamepad* p : sPads) {
+            if (p == pad) {
+                return pad; /* already open */
+            }
+        }
+        SDL_Log("Gamepad connected: %s", SDL_GameControllerName(pad));
+        sPads.push_back(pad);
+    }
+    return pad;
+}
+
+static void CloseGamepad(int which) {
+    (void)which; /* Switch controllers are stable; nothing to do. */
+}
+#else
+static SDL_Gamepad* OpenGamepad(SDL_JoystickID id) {
+    for (SDL_Gamepad* pad : sPads) {
+        if (SDL_GetGamepadID(pad) == id) {
+            return pad;
+        }
+    }
+    if (!SDL_IsGamepad(id)) {
+        SDL_Log("SDL device is not a gamepad: %s", SDL_GetGamepadNameForID(id));
+        return nullptr;
+    }
+    SDL_Gamepad* pad = SDL_OpenGamepad(id);
+    SDL_Log("Gamepad %s: %s", pad ? "connected" : "open failed", SDL_GetGamepadNameForID(id));
+    if (pad) {
+        sPads.push_back(pad);
+    }
+    return pad;
+}
+
+static void CloseGamepad(SDL_JoystickID id) {
+    for (auto it = sPads.begin(); it != sPads.end(); ++it) {
+        if (SDL_GetGamepadID(*it) == id) {
+            SDL_Log("Gamepad disconnected: %s", SDL_GetGamepadName(*it));
+            SDL_CloseGamepad(*it);
+            sPads.erase(it);
+            return;
+        }
+    }
+}
+#endif
+
+extern "C" void Port_Config_Load(const char* path) {
+    nlohmann::json j = DefaultsJson();
+    const std::filesystem::path p = path ? path : "config.json";
+    sConfigPath = p;
+
+    if (std::filesystem::exists(p)) {
+        try {
+            std::ifstream(p) >> j;
+        } catch (...) {
+            j = DefaultsJson();
+        }
+    } else {
+        std::ofstream(p) << j.dump(4) << '\n';
+    }
+
+    sConfigJson = j;
+
+    int scale = j.value("window_scale", 3);
+    sScale = scale >= 1 && scale <= 10 ? (u8)scale : 3;
+    int iscale = j.value("internal_scale", 1);
+    sInternalScale = iscale >= 1 && iscale <= 4 ? (u8)iscale : 1;
+    sUpscaleMethod = j.value("upscale_method", "nearest");
+    sFrameTimeNs = j.value("frame_time_ns", 0ULL);
+    sPortSettingsMenuEnabled = j.value("port_settings_menu", true);
+    sShowFps = j.value("show_fps", false);
+    int fpsCorner = j.value("fps_corner", 0);
+    sFpsCorner = fpsCorner >= 0 && fpsCorner <= 3 ? fpsCorner : 0;
+    int fpsScale = j.value("fps_scale", 1);
+    sFpsScale = fpsScale >= 1 && fpsScale <= 4 ? fpsScale : 1;
+    sFpsBackground = j.value("fps_background", false);
+    int raVariant = j.value("ra_overlay_variant", 1);
+    sRaOverlayVariant = raVariant >= 0 && raVariant <= 5 ? raVariant : 1;
+    /* If config.json carries an explicit language, honour it; otherwise leave
+     * sLanguage = -1 so the first Port_Config_Language() resolves the console
+     * default. Range-check to {0,1}. */
+    if (j.contains("language")) {
+        int lang = j.value("language", 0);
+        sLanguage = (lang >= 0 && lang <= 2) ? lang : 0;
+    }
+
+    for (auto& v : sBinds) {
+        v.clear();
+    }
+    nlohmann::json empty = nlohmann::json::object();
+    const auto& b = j.contains("bindings") ? j["bindings"] : empty;
+    for (const auto& d : kDefaults) {
+        LoadBinds(d.input, b.contains(d.name) ? b[d.name] : DefaultsJson()["bindings"][d.name]);
+    }
+}
+
+extern "C" u8 Port_Config_WindowScale(void) {
+    return sScale;
+}
+
+extern "C" const char* Port_Config_UpscaleMethod(void) {
+    return sUpscaleMethod.c_str();
+}
+
+extern "C" u64 Port_Config_FrameTimeNs(void) {
+    return sFrameTimeNs;
+}
+
+extern "C" u32 Port_Config_TargetFps(void) {
+    if (sFrameTimeNs == 0) {
+        return 0;
+    }
+    return (u32)((1000000000ULL + (sFrameTimeNs / 2)) / sFrameTimeNs);
+}
+
+extern "C" bool Port_Config_PortSettingsMenuEnabled(void) {
+#ifdef __SWITCH__
+    /* On Switch the file-select "L Settings" GBA-native panel is replaced by
+     * the global L+R settings overlay (works on file-select, name entry AND
+     * in-game), so the in-game-only panel + its persistent hint are disabled
+     * here to avoid two competing settings UIs. */
+    return false;
+#else
+    return sPortSettingsMenuEnabled;
+#endif
+}
+
+extern "C" bool Port_Config_ShowFps(void) {
+    return sShowFps;
+}
+
+extern "C" void Port_Config_ToggleShowFps(void) {
+    sShowFps = !sShowFps;
+    sConfigJson["show_fps"] = sShowFps;
+    SaveConfig();
+}
+
+extern "C" int Port_Config_FpsCorner(void) {
+    return sFpsCorner;
+}
+
+extern "C" void Port_Config_CycleFpsCorner(int direction) {
+    int step = direction < 0 ? -1 : 1;
+    sFpsCorner = (sFpsCorner + step + 4) % 4; /* wrap through the 4 corners */
+    sConfigJson["fps_corner"] = sFpsCorner;
+    SaveConfig();
+}
+
+extern "C" int Port_Config_RaOverlayVariant(void) {
+    return sRaOverlayVariant;
+}
+
+extern "C" void Port_Config_CycleRaOverlayVariant(int direction) {
+    int step = direction < 0 ? -1 : 1;
+    sRaOverlayVariant = (sRaOverlayVariant + step + 6) % 6; /* wrap through the 6 variants */
+    sConfigJson["ra_overlay_variant"] = sRaOverlayVariant;
+    SaveConfig();
+}
+
+extern "C" int Port_Config_FpsScale(void) {
+    return sFpsScale;
+}
+
+extern "C" void Port_Config_CycleFpsScale(int direction) {
+    int step = direction < 0 ? -1 : 1;
+    sFpsScale += step;
+    if (sFpsScale < 1) sFpsScale = 1;
+    if (sFpsScale > 4) sFpsScale = 4;
+    sConfigJson["fps_scale"] = sFpsScale;
+    SaveConfig();
+}
+
+extern "C" bool Port_Config_FpsBackground(void) {
+    return sFpsBackground;
+}
+
+extern "C" void Port_Config_ToggleFpsBackground(void) {
+    sFpsBackground = !sFpsBackground;
+    sConfigJson["fps_background"] = sFpsBackground;
+    SaveConfig();
+}
+
+/* Default overlay language when config.json has no "language" key: the console
+ * language on Switch (Portuguese → PT), English everywhere else. */
+#ifdef __SWITCH__
+extern "C" int Port_Switch_SystemLanguage(void); /* switch_applet.c (C linkage): 0=EN 1=PT 2=ES */
+#endif
+
+static int Port_Config_DefaultLanguage(void) {
+#ifdef TMC_DEFAULT_LANG_PT
+    /* BR build (make REGION=BR): default the overlay UI to Português
+     * regardless of the console's system language. The user can still cycle
+     * it on the Minus overlay; the choice then persists in config.json. */
+    return 1; /* 1 = Português */
+#elif defined(__SWITCH__)
+    int l = Port_Switch_SystemLanguage();
+    return (l >= 0 && l <= 2) ? l : 0;
+#else
+    return 0;
+#endif
+}
+
+extern "C" int Port_Config_Language(void) {
+    if (sLanguage < 0) {
+        sLanguage = Port_Config_DefaultLanguage();
+    }
+    return sLanguage;
+}
+
+extern "C" void Port_Config_CycleLanguage(int direction) {
+    /* 0 = English, 1 = Português, 2 = Español. Cycle through all three; L and R
+     * walk in opposite directions. */
+    int step = direction < 0 ? -1 : 1;
+    sLanguage = (Port_Config_Language() + step + 3) % 3;
+    sConfigJson["language"] = sLanguage;
+    SaveConfig();
+}
+
+extern "C" void Port_Config_SetWindowScale(u8 scale) {
+    if (scale < 1) {
+        scale = 1;
+    } else if (scale > 10) {
+        scale = 10;
+    }
+    sScale = scale;
+    sConfigJson["window_scale"] = static_cast<int>(scale);
+    SaveConfig();
+}
+
+extern "C" u8 Port_Config_InternalScale(void) {
+    return sInternalScale;
+}
+
+extern "C" void Port_Config_SetInternalScale(u8 scale) {
+    /* Cap at 4: PPU framebuffer is 1280x640 max (160*4 = 640). */
+    if (scale < 1) scale = 1;
+    if (scale > 4) scale = 4;
+    sInternalScale = scale;
+    sConfigJson["internal_scale"] = static_cast<int>(scale);
+    SaveConfig();
+}
+
+extern "C" void Port_Config_CycleInternalScale(int direction) {
+    int next = (int)sInternalScale + (direction < 0 ? -1 : 1);
+    if (next < 1) next = 4;
+    if (next > 4) next = 1;
+    Port_Config_SetInternalScale((u8)next);
+}
+
+extern "C" void Port_Config_SetUpscaleMethod(const char* method) {
+    if (method == nullptr || method[0] == '\0') {
+        method = "nearest";
+    }
+    sUpscaleMethod = method;
+    sConfigJson["upscale_method"] = sUpscaleMethod;
+    SaveConfig();
+}
+
+extern "C" void Port_Config_SetTargetFps(u32 fps) {
+    sFrameTimeNs = FrameTimeForFps(fps);
+    sConfigJson["frame_time_ns"] = sFrameTimeNs;
+    SaveConfig();
+}
+
+extern "C" void Port_Config_CycleTargetFps(int direction) {
+    const u32 current = Port_Config_TargetFps();
+    size_t index = 0;
+    u32 bestDistance = UINT32_MAX;
+
+    for (size_t i = 0; i < kFpsPresets.size(); i++) {
+        const u32 preset = kFpsPresets[i];
+        const u32 distance = current > preset ? current - preset : preset - current;
+        if (distance < bestDistance) {
+            bestDistance = distance;
+            index = i;
+        }
+    }
+
+    if (direction < 0) {
+        index = index == 0 ? kFpsPresets.size() - 1 : index - 1;
+    } else {
+        index = index + 1 >= kFpsPresets.size() ? 0 : index + 1;
+    }
+
+    Port_Config_SetTargetFps(kFpsPresets[index]);
+}
+
+/* Make sure every connected gamepad has an open SDL_Gamepad handle.
+ * Called from both Port_Config_OpenGamepads() at startup and re-tried
+ * lazily in Port_Config_InputPressed() so a controller that's plugged
+ * in (or recognised by SDL) AFTER startup still gets picked up without
+ * needing the GAMEPAD_ADDED event to flow through the poll loop. */
+#ifdef __SWITCH__
+static void Port_Config_RescanGamepads(bool verbose) {
+    int n = SDL_NumJoysticks();
+    if (verbose) {
+        SDL_Log("SDL joysticks found: %d", n);
+    }
+    for (int i = 0; i < n; i++) {
+        OpenGamepad(i); /* device index */
+    }
+}
+#else
+static void Port_Config_RescanGamepads(bool verbose) {
+    int count = 0;
+    SDL_JoystickID* ids = SDL_GetGamepads(&count);
+    if (verbose) {
+        SDL_Log("SDL gamepads found: %d", count);
+    }
+    for (int i = 0; i < count; i++) {
+        OpenGamepad(ids[i]);
+    }
+    SDL_free(ids);
+}
+#endif
+
+extern "C" void Port_Config_OpenGamepads(void) {
+    /* Hint nudges to make SDL3 see more devices on Linux/wine where the
+     * default backend selection sometimes misses Xinput-shaped pads. */
+    SDL_SetHint("SDL_JOYSTICK_HIDAPI", "1");
+    SDL_SetHint("SDL_GAMECONTROLLER_USE_BUTTON_LABELS", "1");
+
+    if (!SDL_InitSubSystem(SDL_INIT_JOYSTICK)) {
+        SDL_Log("SDL joystick init failed: %s", SDL_GetError());
+    }
+    if (!SDL_InitSubSystem(SDL_INIT_GAMEPAD)) {
+        SDL_Log("SDL gamepad init failed: %s", SDL_GetError());
+        return;
+    }
+    Port_Config_RescanGamepads(true);
+}
+
+#ifdef __SWITCH__
+extern "C" void Port_Config_HandleEvent(const SDL_Event* e) {
+    /* SDL2 uses the c{device,button,axis} union members and has no keyboard
+     * on Switch. Game input is gamepad-only here. */
+    if (e->type == SDL_CONTROLLERDEVICEADDED) {
+        OpenGamepad(e->cdevice.which); /* device index for ADDED */
+    } else if (e->type == SDL_CONTROLLERBUTTONDOWN) {
+        for (size_t i = 0; i < PORT_INPUT_COUNT; i++) {
+            for (const Bind& b : sBinds[i]) {
+                if (b.pad >= 0 && b.pad < SDL_GAMEPAD_BUTTON_COUNT &&
+                    b.pad == (SDL_GamepadButton)e->cbutton.button) {
+                    sEdgePressed[i] = true;
+                    break;
+                }
+            }
+        }
+    } else if (e->type == SDL_CONTROLLERAXISMOTION &&
+               e->caxis.value > kAxisThreshold) {
+        for (size_t i = 0; i < PORT_INPUT_COUNT; i++) {
+            for (const Bind& b : sBinds[i]) {
+                if (b.axis >= 0 && b.axis < SDL_GAMEPAD_AXIS_COUNT &&
+                    b.axis == (SDL_GamepadAxis)e->caxis.axis) {
+                    sEdgePressed[i] = true;
+                    break;
+                }
+            }
+        }
+    }
+}
+#else
+extern "C" void Port_Config_HandleEvent(const SDL_Event* e) {
+    if (e->type == SDL_EVENT_GAMEPAD_ADDED || e->type == SDL_EVENT_JOYSTICK_ADDED) {
+        OpenGamepad(e->gdevice.which);
+    } else if (e->type == SDL_EVENT_GAMEPAD_REMOVED || e->type == SDL_EVENT_JOYSTICK_REMOVED) {
+        CloseGamepad(e->gdevice.which);
+    } else if (e->type == SDL_EVENT_KEY_DOWN && !e->key.repeat) {
+        /* Stamp every PortInput whose binding includes this key as
+         * "pressed this frame" so the engine sees the press even if
+         * the matching release arrives before the next poll. */
+        for (size_t i = 0; i < PORT_INPUT_COUNT; i++) {
+            for (const Bind& b : sBinds[i]) {
+                if (b.key != SDLK_UNKNOWN && b.key == e->key.key) {
+                    sEdgePressed[i] = true;
+                    break;
+                }
+            }
+        }
+    } else if (e->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
+        for (size_t i = 0; i < PORT_INPUT_COUNT; i++) {
+            for (const Bind& b : sBinds[i]) {
+                if (b.pad >= 0 && b.pad < SDL_GAMEPAD_BUTTON_COUNT &&
+                    b.pad == (SDL_GamepadButton)e->gbutton.button) {
+                    sEdgePressed[i] = true;
+                    break;
+                }
+            }
+        }
+    } else if (e->type == SDL_EVENT_GAMEPAD_AXIS_MOTION &&
+               e->gaxis.value > kAxisThreshold) {
+        for (size_t i = 0; i < PORT_INPUT_COUNT; i++) {
+            for (const Bind& b : sBinds[i]) {
+                if (b.axis >= 0 && b.axis < SDL_GAMEPAD_AXIS_COUNT &&
+                    b.axis == (SDL_GamepadAxis)e->gaxis.axis) {
+                    sEdgePressed[i] = true;
+                    break;
+                }
+            }
+        }
+    }
+}
+#endif /* __SWITCH__ */
+
+extern "C" void Port_Config_ClearInputEdges(void) {
+    sEdgePressed.fill(false);
+}
+
+extern "C" bool Port_Config_InputPressed(PortInput input) {
+    /* Edge cache — set by Port_Config_HandleEvent on KEY_DOWN /
+     * GAMEPAD_BUTTON_DOWN events. Lets a sub-frame tap (press+release
+     * entirely between two polls) still register as held for one game
+     * frame, which the polled-state path below cannot do on its own. */
+    if (input >= 0 && input < PORT_INPUT_COUNT && sEdgePressed[input]) {
+        return true;
+    }
+
+    SDL_UpdateGamepads();
+    /* Re-scan every ~1s so a hot-plugged pad starts working even if its
+     * GAMEPAD_ADDED event somehow didn't reach the poll loop. */
+    static uint32_t sNextRescanAt = 0;
+    uint32_t now = SDL_GetTicks();
+    if (now >= sNextRescanAt) {
+        Port_Config_RescanGamepads(false);
+        sNextRescanAt = now + 1000;
+    }
+
+    int count = 0;
+    const bool* keys = (const bool*)SDL_GetKeyboardState(&count);
+    for (const Bind& b : sBinds[input]) {
+        SDL_Scancode scan = b.key == SDLK_UNKNOWN ? SDL_SCANCODE_UNKNOWN : SDL_GetScancodeFromKey(b.key, nullptr);
+        if (scan != SDL_SCANCODE_UNKNOWN && (int)scan < count && keys[scan]) {
+            return true;
+        }
+        for (SDL_Gamepad* pad : sPads) {
+            if (b.pad >= 0 && b.pad < SDL_GAMEPAD_BUTTON_COUNT && SDL_GetGamepadButton(pad, b.pad)) {
+                return true;
+            }
+            if (b.axis >= 0 && b.axis < SDL_GAMEPAD_AXIS_COUNT &&
+                SDL_GetGamepadAxis(pad, b.axis) > kAxisThreshold) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+extern "C" bool Port_Config_SoftSlotPressed(int slot) {
+    static const PortInput kMap[4] = {
+        PORT_INPUT_SOFT_X, PORT_INPUT_SOFT_Y,
+        PORT_INPUT_SOFT_L2, PORT_INPUT_SOFT_R2,
+    };
+    if (slot < 0 || slot >= 4) return false;
+    return Port_Config_InputPressed(kMap[slot]);
+}
+
+/* Left analog stick -> 8-way D-pad. Returns a bitmask of PORT_DPAD_* for any
+ * direction the stick is pushed past the dead zone, OR-combined across all
+ * connected pads. The caller (port_bios.c) ORs this with the real D-pad so the
+ * stick is purely additive — it never suppresses a held D-pad direction.
+ *
+ * The dead zone is larger than kAxisThreshold (used for L2/R2 triggers): a
+ * resting stick drifts a little, and the GBA only has 8 directions, so we want
+ * a deliberate push before a direction registers. Diagonals fall out naturally
+ * because X and Y are tested independently. */
+extern "C" int Port_Config_AnalogDPad(void) {
+    constexpr Sint16 kStickDeadZone = 12000; /* ~37% of the 0..32767 range */
+    int mask = 0;
+    SDL_UpdateGamepads();
+    for (SDL_Gamepad* pad : sPads) {
+        Sint16 ax = SDL_GetGamepadAxis(pad, SDL_GAMEPAD_AXIS_LEFTX);
+        Sint16 ay = SDL_GetGamepadAxis(pad, SDL_GAMEPAD_AXIS_LEFTY);
+        if (ax <= -kStickDeadZone) mask |= PORT_DPAD_LEFT;
+        if (ax >= kStickDeadZone) mask |= PORT_DPAD_RIGHT;
+        if (ay <= -kStickDeadZone) mask |= PORT_DPAD_UP;   /* SDL Y is +down */
+        if (ay >= kStickDeadZone) mask |= PORT_DPAD_DOWN;
+    }
+    return mask;
+}
+
+extern "C" void Port_Config_CloseGamepads(void) {
+    for (SDL_Gamepad* pad : sPads) {
+        SDL_CloseGamepad(pad);
+    }
+    sPads.clear();
+}

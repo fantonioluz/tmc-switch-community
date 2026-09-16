@@ -1,0 +1,603 @@
+#include "gba/io_reg.h"
+#include "main.h"
+#include "port_config.h"
+/* Set by xmake (-DMODE1_GBA_WIDTH=N); falls back to GBA-native 240. */
+#ifndef MODE1_GBA_WIDTH
+#define MODE1_GBA_WIDTH 240
+#endif
+#include "port_asset_bootstrap.h"
+#include "port_audio.h"
+#include "port_gba_mem.h"
+#include "port_ppu.h"
+#include "port_rom.h"
+#include "port_runtime_config.h"
+#include "port_types.h"
+#include "port_update_check.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#ifdef __SWITCH__
+#include <unistd.h>
+#include <sys/stat.h>
+#endif
+#include <SDL3/SDL.h>
+
+/*
+ * Region-specific asset offset header is included based on detected ROM.
+ * Both are always available; the correct mapDataBase is selected at runtime.
+ */
+#ifdef EU
+#include "port_offset_EU.h"
+#else
+#include "port_offset_USA.h"
+#endif
+
+static bool Port_TryInitVideo(const char* videoDriver, const char* renderDriver, bool headless) {
+    if (videoDriver) {
+        SDL_SetHint(SDL_HINT_VIDEO_DRIVER, videoDriver);
+    } else {
+        SDL_ResetHint(SDL_HINT_VIDEO_DRIVER);
+    }
+
+    if (renderDriver) {
+        SDL_SetHint(SDL_HINT_RENDER_DRIVER, renderDriver);
+    } else {
+        SDL_ResetHint(SDL_HINT_RENDER_DRIVER);
+    }
+
+    if (SDL_Init(SDL_INIT_VIDEO)) {
+        const char* currentDriver = SDL_GetCurrentVideoDriver();
+
+        fprintf(stderr, "SDL video driver: %s\n", currentDriver ? currentDriver : "unknown");
+        if (headless) {
+            fprintf(stderr, "SDL initialized with headless video driver '%s'.\n", videoDriver);
+        }
+        return true;
+    }
+
+    return false;
+}
+
+static void Port_LogVideoDiagnostics(void) {
+    int driverCount = SDL_GetNumVideoDrivers();
+
+    fprintf(stderr,
+            "Video env: DISPLAY='%s' WAYLAND_DISPLAY='%s' XDG_SESSION_TYPE='%s'\n",
+            getenv("DISPLAY") ? getenv("DISPLAY") : "",
+            getenv("WAYLAND_DISPLAY") ? getenv("WAYLAND_DISPLAY") : "",
+            getenv("XDG_SESSION_TYPE") ? getenv("XDG_SESSION_TYPE") : "");
+
+    fprintf(stderr, "SDL compiled video drivers:");
+    for (int i = 0; i < driverCount; i++) {
+        fprintf(stderr, " %s", SDL_GetVideoDriver(i));
+    }
+    fprintf(stderr, "\n");
+}
+
+
+static void Port_LogAudioDiagnostics(void) {
+    int driverCount = SDL_GetNumAudioDrivers();
+
+    fprintf(stderr,
+            "Audio env: SDL_AUDIODRIVER='%s' XDG_RUNTIME_DIR='%s' PULSE_SERVER='%s' PIPEWIRE_REMOTE='%s'\n",
+            getenv("SDL_AUDIODRIVER") ? getenv("SDL_AUDIODRIVER") : "",
+            getenv("XDG_RUNTIME_DIR") ? getenv("XDG_RUNTIME_DIR") : "",
+            getenv("PULSE_SERVER") ? getenv("PULSE_SERVER") : "",
+            getenv("PIPEWIRE_REMOTE") ? getenv("PIPEWIRE_REMOTE") : "");
+
+    fprintf(stderr, "SDL compiled audio drivers:");
+    for (int i = 0; i < driverCount; i++) {
+        fprintf(stderr, " %s", SDL_GetAudioDriver(i));
+    }
+    fprintf(stderr, "\n");
+}
+
+static bool Port_TryInitAudioDriver(const char* audioDriver, bool muteOnSuccess, const char** outError) {
+    if (audioDriver && audioDriver[0] != '\0') {
+        SDL_SetHint(SDL_HINT_AUDIO_DRIVER, audioDriver);
+    } else {
+        SDL_ResetHint(SDL_HINT_AUDIO_DRIVER);
+    }
+
+    if (!SDL_InitSubSystem(SDL_INIT_AUDIO)) {
+        if (outError) {
+            *outError = SDL_GetError();
+        }
+        return false;
+    }
+
+    if (!Port_Audio_Init()) {
+        if (outError) {
+            *outError = SDL_GetError();
+        }
+        Port_Audio_Shutdown();
+        SDL_QuitSubSystem(SDL_INIT_AUDIO);
+        return false;
+    }
+
+    fprintf(stderr,
+            "SDL audio driver: %s%s\n",
+            SDL_GetCurrentAudioDriver() ? SDL_GetCurrentAudioDriver() : "unknown",
+            muteOnSuccess ? " (muted dummy backend)" : "");
+    gMain.muteAudio = muteOnSuccess ? 1 : 0;
+    return true;
+}
+
+static bool Port_InitVideo(void) {
+    const char* err = NULL;
+    const char* forcedDriver = getenv("SDL_VIDEODRIVER");
+    const char* display = getenv("DISPLAY");
+    const char* waylandDisplay = getenv("WAYLAND_DISPLAY");
+
+    if (forcedDriver && forcedDriver[0] != '\0') {
+        if (Port_TryInitVideo(NULL, NULL, false)) {
+            return true;
+        }
+        err = SDL_GetError();
+        SDL_Quit();
+    }
+
+    if (waylandDisplay && waylandDisplay[0] != '\0') {
+        if (Port_TryInitVideo("wayland", NULL, false)) {
+            return true;
+        }
+        err = SDL_GetError();
+        SDL_Quit();
+    }
+
+    if (display && display[0] != '\0') {
+        if (Port_TryInitVideo("x11", NULL, false)) {
+            return true;
+        }
+        err = SDL_GetError();
+        SDL_Quit();
+    }
+
+    if (Port_TryInitVideo(NULL, NULL, false)) {
+        return true;
+    }
+    err = SDL_GetError();
+
+    SDL_Quit();
+    if (Port_TryInitVideo("dummy", "software", true)) {
+        fprintf(stderr, "Initial SDL error: %s\n", err ? err : "unknown error");
+        return true;
+    }
+
+    Port_LogVideoDiagnostics();
+    fprintf(stderr, "SDL video init failed: normal='%s', fallback='%s'\n", err ? err : "unknown error", SDL_GetError());
+    return false;
+}
+
+static void Port_InitAudio(void) {
+    const char* err = NULL;
+
+    if (SDL_InitSubSystem(SDL_INIT_AUDIO) && Port_Audio_Init()) {
+        return;
+    }
+
+    err = SDL_GetError();
+    Port_Audio_Shutdown();
+    SDL_QuitSubSystem(SDL_INIT_AUDIO);
+
+    SDL_SetHint(SDL_HINT_AUDIO_DRIVER, "dummy");
+    if (SDL_InitSubSystem(SDL_INIT_AUDIO) && Port_Audio_Init()) {
+        fprintf(stderr, "Audio device unavailable, using SDL dummy audio driver.\n");
+        gMain.muteAudio = 1;
+        return;
+    }
+
+    fprintf(stderr, "Audio disabled: normal='%s', fallback='%s'\n", err ? err : "unknown error", SDL_GetError());
+    Port_Audio_Shutdown();
+    SDL_QuitSubSystem(SDL_INIT_AUDIO);
+    gMain.muteAudio = 1;
+}
+
+/*
+ * On Windows mingw, the heap allocator hands out addresses inside the
+ * 0x02000000-0x0A000000 range — the same range port_resolve_addr treats
+ * as GBA addresses. Heap pointers passed to DmaCopy* (palette/gfx loads
+ * from std::vector buffers) get mistranslated to gEwram[] / gVram[] etc,
+ * silently reading zeros and stalling the title-screen palette. Reserve
+ * the GBA address window before any heap is opened so the OS allocator
+ * can't place anything there. Linux glibc keeps malloc above 0x55... so
+ * this is a no-op there; the call is Windows-only.
+ */
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+static void Port_ReserveGbaAddressSpace(void) {
+    static const struct { uintptr_t base; size_t size; } regions[] = {
+        { 0x02000000u, 0x08000000u }, /* covers EWRAM, IWRAM, IO, palette, VRAM, OAM, ROM mirror */
+    };
+    for (size_t i = 0; i < sizeof(regions)/sizeof(regions[0]); ++i) {
+        LPVOID p = VirtualAlloc((LPVOID)regions[i].base, regions[i].size,
+                                MEM_RESERVE, PAGE_NOACCESS);
+        if (p == NULL) {
+            fprintf(stderr, "WARN: Could not reserve GBA address window 0x%zx-0x%zx; "
+                            "DmaCopy may misbehave.\n",
+                    (size_t)regions[i].base, (size_t)(regions[i].base + regions[i].size));
+        } else {
+            fprintf(stderr, "Reserved GBA address window 0x%zx-0x%zx (heap can't land here).\n",
+                    (size_t)regions[i].base, (size_t)(regions[i].base + regions[i].size));
+        }
+    }
+}
+#else
+static void Port_ReserveGbaAddressSpace(void) { /* not needed on Linux/macOS */ }
+#endif
+
+int main(int argc, char* argv[]) {
+
+#ifdef __SWITCH__
+    /* Anchor all relative paths (ROM probe, rom_data/ + assets/ caches,
+     * config.json, EEPROM saves) to one known-writable SD folder, since the
+     * cwd hbmenu hands us varies. Put baserom.gba in this same folder. */
+    mkdir("/switch", 0777);
+    mkdir("/switch/tmc", 0777);
+    chdir("/switch/tmc");
+    /* Capture all the port's fprintf(stderr,...) tracing to a file on the SD.
+     * Unbuffered so a hard freeze still leaves the last line on disk — read
+     * sdmc:/switch/tmc/tmc.log to see exactly where a hang/crash happened.
+     * Release builds (TMC_RELEASE) skip the file entirely and send stderr to
+     * /dev/null so there's no SD writes / I/O cost.
+     *
+     * APPEND mode ("a"), not truncate ("w"): a crash that bounces back to
+     * hbmenu/sphaira and relaunches the game would otherwise truncate the log
+     * and wipe the very trace we crashed trying to capture (this is exactly how
+     * the issue #28 [SCENE] trace got lost). Each boot stamps a banner so
+     * sessions stay separable. The log is trimmed below if it grows too big. */
+#ifdef TMC_RELEASE
+    freopen("/dev/null", "w", stderr);
+#else
+    /* Keep the log from growing without bound across many crash/relaunch cycles:
+     * if it's already large, start fresh; otherwise append to preserve the
+     * pre-crash trace. 2 MiB is plenty for several full sessions of [SCENE]. */
+    {
+        struct stat lst;
+        const char* mode = "a";
+        if (stat("tmc.log", &lst) == 0 && lst.st_size > (2 * 1024 * 1024)) {
+            mode = "w";
+        }
+        freopen("tmc.log", mode, stderr);
+    }
+    setvbuf(stderr, NULL, _IONBF, 0);
+    fprintf(stderr, "\n=== TMC Switch boot log ===\n");
+#endif
+
+    /* Mount the .nro's embedded romfs (which carries a pre-baked asset cache)
+     * and, on a fresh install, copy it to sdmc:/switch/tmc/assets so the user
+     * only needs to drop their baserom.gba here — no separate assets/ folder
+     * and no slow on-device extraction. Defined in switch_romfs.c (isolated
+     * from the game headers so <switch.h>'s u8/u32 don't clash). */
+    {
+        extern void Port_Switch_InitRomfs(void);
+        extern void Port_Switch_BootstrapAssetsFromRomfs(void);
+        Port_Switch_InitRomfs();
+        Port_Switch_BootstrapAssetsFromRomfs();
+    }
+
+    /* Networking infra (issue #12 groundwork): bring up the socket driver +
+     * libcurl so the port can do HTTPS (RetroAchievements). The TLS path (system
+     * CA store, no bundled certs) was validated on hardware via Port_Net_SmokeTest
+     * (still in switch_net.c for reuse). Library-applet launches were already
+     * rejected above (#17), so networking always runs in full-memory mode. */
+    {
+        extern void Port_Net_Init(void);
+        Port_Net_Init();
+    }
+
+    /* Now that sockets are up, if we were launched via `nxlink -s`, open the
+     * host socket and hand its fd to the trace layer so every [SCENE] line is
+     * mirrored there live — IN ADDITION to the SD tmc.log. The helper redirects
+     * only stdout (not stderr), so it never clobbers our stderr→tmc.log; the
+     * trace layer write()s each line to this fd as well. Result: [SCENE] lines
+     * land in BOTH tmc.log and `nxlink -s`. Gated to debug builds (the trace
+     * layer doesn't exist on TMC_RELEASE). */
+#if !defined(TMC_RELEASE) && (!defined(SCENE_TRACE) || SCENE_TRACE)
+    {
+        extern int Port_Switch_NxlinkStdio(void);
+        extern void Port_SceneTrace_SetMirrorFd(int fd);
+        int nxfd = Port_Switch_NxlinkStdio();
+        if (nxfd >= 0) {
+            Port_SceneTrace_SetMirrorFd(nxfd);
+            fprintf(stderr, "[nxlink] stdio mirror active (fd=%d)\n", nxfd);
+        }
+    }
+#endif
+#endif
+
+    /* Must run before any std::vector / new / malloc that could land in
+     * the GBA window. Static initializers in C++ files are constructed
+     * before main, so even this is technically not early enough — but
+     * the affected allocations (Port_LoadPaletteGroupFromAssets cache)
+     * happen later, after EnsureAssetGroupCache(), so reserving here is
+     * sufficient in practice. */
+    Port_ReserveGbaAddressSpace();
+
+    /* Install crash handlers as early as possible so even faults during
+     * startup (asset bootstrap, ROM load) auto-capture a bug report. */
+    extern void Port_BugReport_InstallCrashHandlers(void);
+    Port_BugReport_InstallCrashHandlers();
+
+    fprintf(stderr, "Initializing port layer...\n");
+
+    // Initialize REG_KEYINPUT to all-keys-released (GBA: 1=not pressed)
+    *(u16*)(gIoMem + REG_OFFSET_KEYINPUT) = 0x03FF;
+
+    Port_Config_Load("config.json");
+
+    u8 window_scale = Port_Config_WindowScale();
+    bool noAudio = false;
+    if (argc > 1) {
+        for (int i = 1; i < argc; i++) {
+            if (strcmp(argv[i], "--window_scale=") == 0 || strncmp(argv[i], "--window_scale=", 15) == 0) {
+                const char* valueStr = argv[i] + 15;
+                int value = atoi(valueStr);
+                if (value >= 1 && value <= 10) {
+                    window_scale = (uint8_t)value;
+                } else {
+                    fprintf(stderr, "Invalid window scale '%s'. Must be an integer between 1 and 10.\n", valueStr);
+                }
+            }
+            else if (strcmp(argv[i], "--loose-assets") == 0) {
+                Port_LooseAssetsRequested = 1;
+            }
+            else if (strcmp(argv[i], "--no-audio") == 0) {
+                noAudio = true;
+            }
+            else if (strcmp(argv[i], "--help") == 0) {
+                fprintf(stderr, "Usage: %s [--window_scale=<value>] [--loose-assets] [--no-audio]\n", argv[0]);
+                fprintf(stderr, "  --window_scale=<value>: Set the window scale (1-10, default is 3)\n");
+                fprintf(stderr, "  --loose-assets:         Ignore assets/*.pak archives and read loose files instead.\n");
+                fprintf(stderr, "  --no-audio:             Skip audio init (workaround for agbplay crash)\n");
+                fprintf(stderr, "  config.json: Set window_scale and bindings defaults\n");
+                return 0;
+            }
+            else {
+                fprintf(stderr, "Unknown argument: %s\n", argv[i]);
+            }
+        }
+    }
+
+    // Initialize SDL video first. Audio is optional and handled separately.
+    if (!Port_InitVideo()) {
+        return 1;
+    }
+
+#ifdef __SWITCH__
+    /* Library-applet check (issue #17): if the port was opened as a library
+     * applet (e.g. via the Homebrew Menu's Album, or nxlink) it gets a tiny
+     * memory pool and cannot start (16 MB ROM + ~14 MB map data won't fit).
+     * Detect it here — after SDL video init but before the ROM probe, since with
+     * no memory nothing downstream can succeed — and show a blocking NATIVE error
+     * dialog (Port_Switch_ShowFatalMessage → libnx error applet) explaining the
+     * fix. We do NOT use SDL_ShowSimpleMessageBox: on the Switch there is no host
+     * window manager to draw it, so it shows nothing and returns instantly. Text
+     * follows the overlay language (0=EN,1=PT,2=ES), ASCII-only like the UI. */
+    {
+        extern int Port_Switch_IsLibraryApplet(void);
+        extern int Port_Config_Language(void);
+        extern void Port_Switch_ShowFatalMessage(const char* short_msg, const char* detail);
+        if (Port_Switch_IsLibraryApplet()) {
+            const char* title;
+            const char* detail;
+            switch (Port_Config_Language()) {
+                case 1:
+                    title = "Memoria limitada (modo applet)";
+                    detail = "Abra com memoria total: segure R ao iniciar um jogo "
+                             "no menu inicial, ou use o forwarder NSP. Aberto pelo "
+                             "Album, o jogo nao tem memoria suficiente para rodar.";
+                    break;
+                case 2:
+                    title = "Memoria limitada (modo applet)";
+                    detail = "Abra con memoria total: manten R al iniciar un juego "
+                             "en el menu inicial, o usa el forwarder NSP. Abierto "
+                             "desde el Album, el juego no tiene memoria suficiente.";
+                    break;
+                default:
+                    title = "Limited memory (applet mode)";
+                    detail = "Open with full memory: hold R when starting a game "
+                             "from the home menu, or use the NSP forwarder. Opened "
+                             "via the Album, the game has too little memory to run.";
+                    break;
+            }
+            fprintf(stderr, "[applet] %s — %s\n", title, detail);
+            Port_Switch_ShowFatalMessage(title, detail);
+            SDL_Quit();
+            return 1;
+        }
+    }
+#endif
+
+    Port_Config_OpenGamepads();
+
+    /* Pre-window ROM presence check: bail out with a message box BEFORE
+     * creating any window so the user gets clear feedback instead of a
+     * black-screen launch. SDL_ShowSimpleMessageBox accepts NULL as
+     * parent, so this is safe pre-window. */
+    const char* romPath = Port_FindBaseRomPath();
+    if (romPath == NULL) {
+        static const char kMsg[] =
+            "Could not find baserom.gba.\n\n"
+            "Place baserom.gba next to tmc_pc and try again.\n"
+            "Supported names: baserom.gba (USA), baserom_eu.gba (EU),\n"
+            "tmc.gba, tmc_eu.gba.";
+        fprintf(stderr, "%s\n", kMsg);
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,
+                                 "Minish Cap PC Port - ROM not found",
+                                 kMsg, NULL);
+        SDL_Quit();
+        return 1;
+    }
+
+    /* Use SDL_CreateWindowAndRenderer so SDL picks the renderer
+     * driver (opengl/vulkan/...) and creates the window with the
+     * matching visual flags atomically. Calling SDL_CreateRenderer
+     * AFTER SDL_CreateWindow on Linux/X11 forces SDL to internally
+     * destroy and recreate the X11 window to add SDL_WINDOW_OPENGL,
+     * which the user sees as "first window opens, goes black,
+     * closes, then second window opens." Confirmed by H9 logs:
+     * window flags went from 0x220 → 0x222 across the first
+     * SDL_CreateRenderer call, with driver=opengl. */
+#ifdef __SWITCH__
+    /* Renderer driver choice (issue #24, GPU overlay foundation).
+     *
+     * Historically we forced "software": the ViruaPPU already produces a CPU
+     * framebuffer (so the GAME itself gains nothing from the GPU), and software
+     * avoids Mesa-generated GLES shaders that emulator shader recompilers
+     * (Eden/yuzu) can't decode.
+     *
+     * For a real-hardware-only target we instead use the GPU ("opengles2",
+     * already linked: EGL/GLESv2/glapi/drm_nouveau). The present path is already
+     * texture-based (SDL_CreateTexture + SDL_UpdateTexture(framebuffer) +
+     * SDL_RenderTexture), so the game still uploads its CPU framebuffer as a
+     * texture — but a GPU renderer lets a future overlay (icons, lists,
+     * animations) draw on the otherwise-idle GPU instead of stealing CPU from
+     * the (CPU-bound) game/audio. TMC_GPU_RENDER gates it so reverting to the
+     * emulator-safe software path is a one-flag change.
+     *
+     * Set here (after Port_InitVideo, which resets render-driver hints in its
+     * fallback path) and right before renderer creation so it actually sticks. */
+#ifdef TMC_GPU_RENDER
+    SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengles2");
+#else
+    SDL_SetHint(SDL_HINT_RENDER_DRIVER, "software");
+#endif
+#endif
+
+    SDL_Window* window = NULL;
+    SDL_Renderer* prerenderer = NULL;
+#ifdef __SWITCH__
+    /* The Switch has a single fixed display (1280x720 handheld, 1920x1080
+     * docked). Create the window FULLSCREEN at the native handheld resolution
+     * so the renderer's output size matches the screen and the present path
+     * (Port_PPU_ComputeFitRect) fills it aspect-correct (pillarboxed) instead
+     * of rendering into a 240*window_scale sub-region. switch_applet.c bumps
+     * the size to 1080p on dock. The PC "window scale" concept does not apply
+     * here — creating at 240*scale left the game in a small corner of the TV.
+     * (Resizing post-creation via SDL_SetWindowSize did NOT fix it: switch-sdl2
+     * does not refresh the renderer output size on resize, so the window must
+     * be the right size at creation.) */
+    const int createW = 1280;
+    const int createH = 720;
+    const Uint32 createFlags = SDL_WINDOW_FULLSCREEN;
+    (void)window_scale;
+#else
+    const int createW = 240 * window_scale;
+    const int createH = 160 * window_scale;
+    const Uint32 createFlags = SDL_WINDOW_RESIZABLE;
+#endif
+    if (!SDL_CreateWindowAndRenderer(
+            "The Minish Cap",
+            createW, createH,
+            createFlags,
+            &window, &prerenderer)) {
+        fprintf(stderr, "SDL_CreateWindowAndRenderer Error: %s\n", SDL_GetError());
+        SDL_Quit();
+        return 1;
+    }
+    (void)prerenderer; /* Owned by the window; retrieved via SDL_GetRenderer(window) later. */
+
+    SDL_ShowWindow(window);
+    SDL_RaiseWindow(window);
+    SDL_SyncWindow(window);
+
+    /* Paint a "LOADING" splash IMMEDIATELY so the window never
+     * shows a blank black rectangle. Without this, ROM load + asset
+     * check + update check + PPU init add up to ~1.4 s of unpainted
+     * window before the first SDL_RenderPresent, which the user
+     * perceives as "black screen, then the game relaunches". The
+     * SDL_Renderer was already created atomically with the window
+     * by SDL_CreateWindowAndRenderer above, so this call just
+     * fetches it via SDL_GetRenderer(window) and presents on it. */
+    Port_PaintBootSplash(window, "LOADING");
+
+    /* Load the ROM before showing the progress bar so the extractor
+     * can reuse the in-memory buffer (skip a second 16 MB read) AND
+     * so we can validate the region BEFORE extracting. Previously the
+     * order was reversed and a wrong-region ROM would happily extract
+     * 3-4 seconds of bad assets before we noticed. Use the path the
+     * pre-window probe just resolved so we don't re-walk candidates. */
+    Port_LoadRom(romPath);
+    Port_EnsureAssetsReadyWithDisplay(window, gRomData, gRomSize);
+    Port_CheckForUpdates(window);
+
+#ifdef __SWITCH__
+    /* RetroAchievements (issue #12): now that the ROM is in memory (gRomData),
+     * create the client and attempt a SILENT token re-login (only if the user
+     * logged in before — no keyboard, no boot block for non-RA users). The
+     * interactive keyboard login is user-triggered from the settings menu
+     * (Port_RA_InteractiveLogin). On a successful login the game's achievement
+     * set loads (hash → game id) and per-frame evaluation runs from
+     * Port_PPU_PresentFrame. Softcore only (save states stay enabled). All RA
+     * logic lives in port_retroachievements.c. */
+    {
+        extern int Port_RA_Init(void);
+        extern int Port_RA_TryAutoLogin(void);
+        if (Port_RA_Init() == 0) {
+            Port_RA_TryAutoLogin();
+        }
+    }
+#endif
+
+    // Verify ROM region matches compiled region
+#ifdef EU
+    if (gRomRegion != ROM_REGION_EU) {
+        fprintf(stderr,
+                "WARNING: This binary was compiled for EU but the ROM is %s.\n"
+                "         Asset offsets may be incorrect. Rebuild with the correct --game_version.\n",
+                gRomRegion == ROM_REGION_USA ? "USA" : "UNKNOWN");
+    }
+#else
+    if (gRomRegion != ROM_REGION_USA) {
+        fprintf(stderr,
+                "WARNING: This binary was compiled for USA but the ROM is %s.\n"
+                "         Asset offsets may be incorrect. Rebuild with: xmake f --game_version=EU\n",
+                gRomRegion == ROM_REGION_EU ? "EU" : "UNKNOWN");
+    }
+#endif
+
+    // Initialize PPU renderer
+    Port_PPU_Init(window);
+
+    /* Bridge frame: between the progress bar reaching 100% and
+     * AgbMain producing its first GBA frame, audio init and AgbMain
+     * warmup take long enough to leave the window blank. Paint a
+     * single "Starting..." card on the same renderer so the user
+     * sees one continuous experience instead of an extractor screen
+     * followed by a blank window followed by the title screen. */
+    /* Repaint the same "LOADING" card on each transition so the
+     * user sees one continuous splash from window-open to first
+     * GBA frame instead of multiple flickering states. */
+    Port_PaintBootSplash(window, "LOADING");
+    fprintf(stderr, "PPU init complete.\n");
+    if (noAudio) {
+        gMain.muteAudio = 1;
+        fprintf(stderr, "Audio disabled by --no-audio flag.\n");
+    } else {
+        Port_InitAudio();
+        Port_PaintBootSplash(window, "LOADING");
+        fprintf(stderr, "Audio init complete.\n");
+    }
+
+    fprintf(stderr, "Port layer initialized. Entering AgbMain...\n");
+
+#ifdef __SWITCH__
+    /* Silence the per-frame gameplay debug traces ([disp]/[upi]/[fade-call]/
+     * [orch-*]) from here on: they fprintf(stderr) every frame, which would
+     * hammer the SD card and bloat tmc.log. The boot trace above is already
+     * flushed to tmc.log; gameplay stderr is discarded. */
+    fflush(stderr);
+    freopen("/dev/null", "w", stderr);
+#endif
+
+    AgbMain();
+
+    Port_Audio_Shutdown();
+    Port_PPU_Shutdown();
+    Port_Config_CloseGamepads();
+    SDL_DestroyWindow(window);
+    SDL_Quit();
+    return 0;
+}

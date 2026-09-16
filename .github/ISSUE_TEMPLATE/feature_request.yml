@@ -1,0 +1,16 @@
+name: Sugerir uma melhoria
+description: Descreva uma melhoria para a experiência no Switch.
+title: "[Melhoria] "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Qual problema você quer resolver?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Como a melhoria funcionaria?
+    validations:
+      required: true

@@ -1,0 +1,566 @@
+// TODO: original name is probably floor.c
+
+#include "room.h"
+#include "area.h"
+#include "common.h"
+#include "enemy.h"
+#include "effects.h"
+#include "flags.h"
+#include "script.h"
+#include "game.h"
+#include "manager/bombableWallManager.h"
+#include "map.h"
+#include "object.h"
+#include "tiles.h"
+#ifdef PC_PORT
+#include "port_rom.h"
+#include "port/port_generic_entity.h"
+#include <stdio.h>
+#else
+#define GE_FIELD(ent, fname) (&((GenericEntity*)(ent))->fname)
+#endif
+
+#include "port_scene_trace.h"
+
+static void sub_0804B058(EntityData* dat);
+extern void sub_0801AC98(void);
+extern u32 EnemyEnableRespawn(u32);
+
+extern void** gCurrentRoomProperties;
+extern void*** gAreaTable[];
+#ifdef PC_PORT
+extern void* Port_ReadPackedRomPtr(const void* base, u32 index);
+extern void* Port_GetRoomFuncProp(u32 area, u32 room, u32 prop_idx);
+#endif
+extern u8 gEntityListLUT[];
+
+extern void sub_080186EC(void);
+extern void sub_0804B16C(void);
+extern void ClearSmallChests(void);
+extern Entity* GetEmptyEntityByKind(u32 kind);
+
+void RegisterRoomEntity(Entity*, const EntityData*);
+void sub_0804AF0C(Entity*, const EntityData*);
+void sub_0804AFB0(void** properties);
+
+void sub_08054524(void);
+void sub_0806F704(Entity*, u32);
+
+void sub_0805BB00(u32, u32);
+
+static void LoadRoomVisitTile(TileEntity*);
+static void LoadSmallChestTile(TileEntity*);
+static void LoadBombableWallTile(TileEntity*);
+static void LoadDarknessTile(TileEntity*);
+static void LoadDestructibleTile(TileEntity*);
+static void LoadGrassDropTile(TileEntity*);
+static void LoadLocationTile(TileEntity*);
+
+void LoadRoomEntityList(const EntityData* listPtr) {
+#if SCENE_TRACE
+    if (listPtr == NULL) {
+        SCENE_LOG("LoadRoomEntityList: list=NULL (no entities to spawn)");
+    } else {
+        int count = 0;
+        const EntityData* p = listPtr;
+        while (p->kind != 0xFF && count < 0x400) {
+            count++;
+            p++;
+        }
+        SCENE_LOG("LoadRoomEntityList: list=%p count=%d", (const void*)listPtr, count);
+    }
+#endif
+    if (listPtr != NULL) {
+        while (listPtr->kind != 0xFF) {
+            LoadRoomEntity(listPtr++);
+        }
+    }
+}
+
+Entity* LoadRoomEntity(const EntityData* dat) {
+    int kind;
+    Entity* entity;
+
+// r4/r5 regalloc
+#ifndef NON_MATCHING
+    asm("" ::: "r5");
+#endif
+
+    kind = dat->kind & 0xF;
+    if ((dat->flags & 0xF0) == 0x50 && DeepFindEntityByID(kind, dat->id))
+        return NULL;
+    entity = GetEmptyEntityByKind(kind);
+    if (entity != NULL) {
+        entity->kind = kind;
+        entity->id = dat->id;
+        entity->type = dat->type;
+        RegisterRoomEntity(entity, dat);
+        if ((dat->flags & 0xF0) != 16) {
+            u8 kind2;
+            entity->type2 = *(u8*)&dat->type2;
+            entity->timer = (dat->type2 & 0xFF00) >> 8;
+            if (kind == 9)
+                return entity;
+            sub_0804AF0C(entity, dat);
+            if (!entity->next)
+                return entity;
+            kind2 = dat->kind & 0xF0;
+            if ((kind2 & 0x10) == 0) {
+                if ((kind2 & 0x20) != 0) {
+                    entity->collisionLayer = 2;
+                    return entity;
+                }
+            }
+
+            if ((kind2 & 0x10) || (gRoomControls.scroll_flags & 2)) {
+                entity->collisionLayer = 1;
+                return entity;
+            }
+
+            ResolveCollisionLayer(entity);
+            return entity;
+        }
+    }
+    return entity;
+}
+
+void RegisterRoomEntity(Entity* ent, const EntityData* dat) {
+    u32 list;
+    u32 kind;
+
+    list = dat->flags & 0xF;
+    kind = dat->kind & 0xF;
+    if (ent->prev == NULL) {
+        if (list == 0xF) {
+            AppendEntityToList(ent, gEntityListLUT[kind]);
+        } else if (list == 8) {
+            AppendEntityToList(ent, 8);
+        } else {
+            AppendEntityToList(ent, list);
+        }
+    }
+    if (kind == MANAGER) {
+#ifdef PC_PORT
+
+        MemCopy(dat, (u8*)ent + sizeof(Manager) + 0x10, sizeof(EntityData));
+#else
+        MemCopy(dat, &ent->y, sizeof(EntityData));
+#endif
+    } else {
+        /*
+         * On 64-bit PC, entity subtypes (Enemy, Player) have pointer fields
+         * that shift the extra area layout relative to GenericEntity.
+         * Use GE_FIELD accessor to compute correct byte offset per entity kind.
+         */
+        u32 spritePtr = dat->spritePtr;
+
+        GE_FIELD(ent, field_0x78)->HALF.LO = dat->kind;
+        GE_FIELD(ent, field_0x78)->HALF.HI = dat->flags;
+        GE_FIELD(ent, field_0x7a)->HALF.LO = dat->id;
+        GE_FIELD(ent, field_0x7a)->HALF.HI = dat->type;
+        GE_FIELD(ent, field_0x7c)->WORD_U = dat->type2;
+        GE_FIELD(ent, field_0x80)->HWORD = dat->xPos;
+        GE_FIELD(ent, field_0x82)->HWORD = dat->yPos;
+        GE_FIELD(ent, cutsceneBeh)->HWORD = (u16)(spritePtr & 0xFFFF);
+        GE_FIELD(ent, field_0x86)->HWORD = (u16)(spritePtr >> 16);
+#ifdef PC_PORT
+        /* GenericEntity's cutsceneBeh/field_0x86 union is void*-aligned,
+         * so it sits at PC offset 0xB0/0xB2 — but most entity subclass
+         * structs (WarpPointEntity, HeartContainerEntity, GentariCurtain,
+         * lots of others) lay out a `flag` field at GBA 0x86 without
+         * the void* trick, landing at PC 0xAE. Mirror the spritePtr
+         * halves to those natural-aligned bytes too so subclass reads
+         * pick up the right value. The mirrored bytes lie in
+         * GenericEntity's pre-union padding (0xAC-0xAF), so cutscene
+         * entities are unaffected — StartCutscene's later 8-byte
+         * scriptContext write at 0xB0 supersedes it. */
+        if (kind != ENEMY) {
+            *(u16*)((u8*)ent + 0xAC) = (u16)(spritePtr & 0xFFFF);
+            *(u16*)((u8*)ent + 0xAE) = (u16)(spritePtr >> 16);
+        }
+#endif
+    }
+}
+
+void sub_0804AF0C(Entity* ent, const EntityData* dat) {
+    switch (dat->flags & 0xf0) {
+        case 0x0:
+            ent->x.HALF.HI = dat->xPos + gRoomControls.origin_x;
+            ent->y.HALF.HI = dat->yPos + gRoomControls.origin_y;
+            break;
+        case 0x20:
+            ((Enemy*)ent)->enemyFlags |= EM_FLAG_CAPTAIN;
+            ent->x.HALF.HI = dat->xPos + gRoomControls.origin_x;
+            ent->y.HALF.HI = dat->yPos + gRoomControls.origin_y;
+            break;
+        case 0x40:
+            ent->x.HALF.HI = dat->xPos + gRoomControls.origin_x;
+            ent->y.HALF.HI = dat->yPos + gRoomControls.origin_y;
+#ifdef PC_PORT
+            {
+                void* resolved = (void*)Port_ResolveRomData(dat->spritePtr);
+                if (!StartCutscene(ent, (u16*)resolved))
+                    DeleteEntity(ent);
+            }
+#else
+            if (!StartCutscene(ent, (u16*)dat->spritePtr))
+                DeleteEntity(ent);
+#endif
+            break;
+    }
+}
+
+void sub_0804AF90(void) {
+    sub_0804AFB0(gArea.pCurrentRoomInfo->properties);
+    ClearSmallChests();
+}
+
+#ifdef PC_PORT
+static void** GetAreaRoomPropertyList(u32 area, u32 room) {
+    void*** areaTable = gAreaTable[area];
+    const u8* ptr = (const u8*)areaTable;
+
+    if (areaTable == NULL) {
+        Port_RefreshAreaData(area);
+        areaTable = gAreaTable[area];
+        ptr = (const u8*)areaTable;
+        if (areaTable == NULL) {
+            return NULL;
+        }
+    }
+
+    /* Sanity check: a valid areaTable must either point into gRomData (raw
+     * GBA pointer table) or at native heap/data memory below the canonical
+     * x86-64 user-space ceiling. Anything else is corruption — most often a
+     * stale 4-byte ROM pointer that was sign/zero-extended into a 64-bit slot
+     * before Port_RefreshAreaData ran. Force a refresh in that case so the
+     * map menu doesn't crash when it walks unvisited dungeon floors (#39). */
+    {
+        bool32 inRom = (gRomData != NULL && ptr >= gRomData && ptr < gRomData + gRomSize);
+        bool32 plausible = ((uintptr_t)ptr < (uintptr_t)0x0000800000000000ULL);
+        if (!inRom && !plausible) {
+            Port_RefreshAreaData(area);
+            areaTable = gAreaTable[area];
+            ptr = (const u8*)areaTable;
+            if (areaTable == NULL) {
+                return NULL;
+            }
+            inRom = (gRomData != NULL && ptr >= gRomData && ptr < gRomData + gRomSize);
+        }
+        if (inRom) {
+            return Port_ReadPackedRomPtr(areaTable, room);
+        }
+    }
+
+    return areaTable[room];
+}
+
+static bool32 IsRoomPropertyListInRom(void** properties) {
+    const u8* ptr = (const u8*)properties;
+
+    if (properties == NULL || gRomData == NULL) {
+        return FALSE;
+    }
+
+    return ptr >= gRomData && ptr < gRomData + gRomSize;
+}
+#endif
+
+void sub_0804AFB0(void** properties) {
+    u32 i;
+
+    gCurrentRoomProperties = properties;
+    for (i = 0; i < 8; ++i) {
+#ifdef PC_PORT
+        void* val = NULL;
+        if (i >= 4) {
+            /* Properties 4..7 are usually room callback functions (init / enter
+             * / update / exit). The port keeps those in a hand-built function
+             * table because raw GBA function pointers can't survive ROM
+             * relocation. But some rooms put DATA pointers here too — e.g.
+             * Minish Forest lily pads index a rail array via type2 in 4..7.
+             * Try the func table first, then fall back to a packed ROM read
+             * so non-callback rooms still get their data. */
+            val = Port_GetRoomFuncProp(gRoomControls.area, gRoomControls.room, i);
+        }
+        if (val == NULL) {
+            val = IsRoomPropertyListInRom(properties) ? Port_ReadPackedRomPtr(properties, i)
+                                                      : properties[i];
+        }
+        gRoomVars.properties[i] = val;
+#else
+        gRoomVars.properties[i] = gCurrentRoomProperties[i];
+#endif
+    }
+}
+
+u32 CallRoomProp6(void) {
+    u32 result;
+    u32 (*func)(void);
+
+    result = 1;
+    func = (u32 (*)())GetCurrentRoomProperty(6);
+    if (func != NULL)
+        result = func();
+    return result;
+}
+
+void CallRoomProp5And7(void) {
+    void (*func)(void);
+
+    sub_080186EC();
+    func = (void (*)())GetCurrentRoomProperty(5);
+    if (func) {
+        func();
+    }
+    func = (void (*)())GetCurrentRoomProperty(7);
+    if (func) {
+        func();
+    }
+    sub_0804B16C();
+}
+
+void LoadRoom(void) {
+#if SCENE_TRACE
+    SCENE_LOG("LoadRoom: area=%u room=%u props[0]=%p props[1]=%p props[3]=%p", gRoomControls.area, gRoomControls.room,
+              GetCurrentRoomProperty(0), GetCurrentRoomProperty(1), GetCurrentRoomProperty(3));
+#endif
+    LoadRoomEntityList(GetCurrentRoomProperty(1));
+    LoadRoomEntityList(GetCurrentRoomProperty(0));
+
+    if (CheckGlobalFlag(TABIDACHI)) {
+        sub_0804B058(GetCurrentRoomProperty(2));
+    }
+
+    LoadRoomTileEntities(GetCurrentRoomProperty(3));
+    sub_0801AC98();
+}
+
+static void sub_0804B058(EntityData* dat) {
+    Entity* ent;
+    u32 uVar2;
+
+    if ((dat != NULL) && dat->kind != 0xff) {
+        uVar2 = 0;
+        do {
+            if ((uVar2 < 0x20) && ((dat->kind & 0xF) == 3)) {
+                if (EnemyEnableRespawn(uVar2) != 0) {
+                    ent = LoadRoomEntity(dat);
+                    if ((ent != NULL) && (ent->kind == ENEMY)) {
+                        ((Enemy*)ent)->idx = uVar2 | 0x80; // TODO Set the room tracker flag that can be set by the
+                                                           // enemy so it does not appear next time the room is visited?
+                    }
+                }
+            } else {
+                LoadRoomEntity(dat);
+            }
+            uVar2++;
+            dat++;
+        } while (dat->kind != 0xff);
+    }
+}
+
+void sub_0804B0B0(u32 area, u32 room) {
+    LoadRoomEntityList(GetRoomProperty(area, room, 1));
+}
+
+void SetCurrentRoomPropertyList(u32 area, u32 room) {
+    gCurrentRoomProperties = NULL;
+    if (gAreaTable[area] != NULL) {
+#ifdef PC_PORT
+        gCurrentRoomProperties = GetAreaRoomPropertyList(area, room);
+#else
+        gCurrentRoomProperties = gAreaTable[area][room];
+#endif
+    }
+}
+
+void sub_0804B0E8(u32 area, u32 room) {
+    void (*func)(void);
+
+    // init function at index 4 of room data
+    func = (void (*)())GetRoomProperty(area, room, 4);
+    if (func != NULL) {
+        func();
+    }
+}
+
+void* GetRoomProperty(u32 area, u32 room, u32 property) {
+    void** temp;
+    temp = NULL;
+    if (gAreaTable[area] != NULL) {
+#ifdef PC_PORT
+        temp = GetAreaRoomPropertyList(area, room);
+#else
+        temp = gAreaTable[area][room];
+#endif
+        if (temp != NULL) {
+#ifdef PC_PORT
+            void* val = NULL;
+            if (property >= 4 && property <= 7) {
+                val = Port_GetRoomFuncProp(area, room, property);
+            }
+            if (val == NULL) {
+                val = IsRoomPropertyListInRom(temp) ? Port_ReadPackedRomPtr(temp, property) : temp[property];
+            }
+            return val;
+#else
+            temp = temp[property];
+#endif
+        }
+    }
+    return temp;
+}
+
+void* GetCurrentRoomProperty(u32 idx) {
+    if (gCurrentRoomProperties == NULL)
+        return NULL;
+
+    if (idx >= 0x80) { // TODO different kind of room properties?
+        return gRoomVars.entityRails[idx & 7];
+    } else if (idx <= 7) {
+        return gRoomVars.properties[idx];
+    } else {
+#ifdef PC_PORT
+        return IsRoomPropertyListInRom(gCurrentRoomProperties) ? Port_ReadPackedRomPtr(gCurrentRoomProperties, idx)
+                                                                : gCurrentRoomProperties[idx];
+#else
+        return gCurrentRoomProperties[idx];
+#endif
+    }
+}
+
+void sub_0804B16C(void) {
+    TileEntity* tileEntity = gSmallChests;
+    do {
+        if (tileEntity->tilePos != 0 && CheckLocalFlag(tileEntity->localFlag)) {
+            SetTileType(TILE_TYPE_116, tileEntity->tilePos, tileEntity->_6 & 1 ? LAYER_TOP : LAYER_BOTTOM);
+        }
+    } while (++tileEntity < gSmallChests + 8);
+}
+
+void LoadRoomTileEntities(TileEntity* list) {
+    TileEntity* t = list;
+
+    if (t == NULL)
+        return;
+
+    for (t; t->type != 0; ++t) {
+        switch (t->type) {
+            case ROOM_VISIT_MARKER:
+                LoadRoomVisitTile(t);
+                break;
+            case SMALL_CHEST:
+                LoadSmallChestTile(t);
+                break;
+            case BOMBABLE_WALL:
+                LoadBombableWallTile(t);
+                break;
+            case MUSIC_SETTER:
+                gArea.queued_bgm = t->_3;
+                break;
+            case DARKNESS:
+#ifdef PC_PORT
+                fprintf(stderr,
+                        "[ROOM] DARKNESS area=%u room=%u light=%u tilePos=0x%03X layer=%u\n",
+                        gRoomControls.area, gRoomControls.room, t->_3, t->tilePos, t->_2);
+#endif
+                LoadDarknessTile(t);
+                break;
+            case DESTRUCTIBLE_TILE:
+                LoadDestructibleTile(t);
+                break;
+            case GRASS_DROP_CHANGER:
+                LoadGrassDropTile(t);
+                break;
+            case LOCATION_CHANGER:
+#ifdef PC_PORT
+                fprintf(stderr,
+                        "[ROOM] LOCATION_CHANGER area=%u room=%u -> location=%u\n",
+                        gRoomControls.area, gRoomControls.room, t->localFlag);
+#endif
+                LoadLocationTile(t);
+                break;
+            case TILE_ENTITY_D:
+                gRoomVars.fight_bgm = t->_3;
+                break;
+        }
+    }
+}
+
+static void LoadGrassDropTile(TileEntity* tileEntity) {
+    MemCopy(&gAreaDroptables[tileEntity->localFlag], &gRoomVars.currentAreaDroptable, 0x20);
+}
+
+static void LoadLocationTile(TileEntity* tileEntity) {
+    gArea.locationIndex = tileEntity->localFlag;
+    sub_08054524();
+}
+
+static void LoadRoomVisitTile(TileEntity* tileEntity) {
+    SetLocalFlag(tileEntity->localFlag);
+}
+
+static void LoadSmallChestTile(TileEntity* tileEntity) {
+    TileEntity* t = gSmallChests;
+    u32 i = 0;
+    for (i = 0; i < 8; ++i, ++t) {
+        if (!t->tilePos) {
+            MemCopy(tileEntity, t, sizeof(TileEntity));
+            if ((t->_6 & 1) && (gRoomControls.scroll_flags & 2) && !CheckLocalFlag(t->localFlag)) {
+                Entity* e = CreateObject(SPECIAL_CHEST, t->localFlag, 0);
+                if (e != NULL) {
+                    sub_0806F704(e, t->tilePos);
+                }
+            }
+            return;
+        }
+    }
+}
+
+static void LoadBombableWallTile(TileEntity* tileEntity) {
+    BombableWallManager* mgr = (BombableWallManager*)GetEmptyManager();
+    if (mgr != NULL) {
+        mgr->base.kind = MANAGER;
+        mgr->base.id = BOMBABLE_WALL_MANAGER;
+        mgr->x = tileEntity->tilePos;
+        mgr->y = *(u16*)&tileEntity->_6;
+        mgr->layer = tileEntity->_2;
+        mgr->flag = tileEntity->localFlag;
+        AppendEntityToList((Entity*)mgr, 6);
+    }
+}
+
+static void LoadDarknessTile(TileEntity* tileEntity) {
+    sub_0805BB00(tileEntity->_3, 1);
+}
+
+static void LoadDestructibleTile(TileEntity* tileEntity) {
+    if (CheckLocalFlag(*(u16*)&tileEntity->_2)) {
+        SetTileType(*(u16*)&tileEntity->_6, tileEntity->tilePos, tileEntity->localFlag);
+    } else if (!gRoomVars.destructableManagerLoaded) {
+        Manager* mgr;
+        gRoomVars.destructableManagerLoaded = TRUE;
+        mgr = GetEmptyManager();
+        if (mgr != NULL) {
+            mgr->kind = MANAGER;
+            mgr->id = DESTRUCTIBLE_TILE_OBSERVE_MANAGER;
+            AppendEntityToList((Entity*)mgr, 6);
+        }
+    }
+}
+
+void sub_0804B388(u32 a1, u32 a2) {
+    Entity* e;
+    SetTileType(a2 == 1 ? 38 : 52, a1, a2);
+    e = CreateObject(SPECIAL_FX, FX_DEATH, 0);
+    if (e != NULL) {
+        e->collisionLayer = a2;
+        sub_0806F704(e, a1);
+    }
+    ModDungeonKeys(-1);
+}
+
+void LoadSmallChestTile2(TileEntity* tileEntity) {
+    LoadSmallChestTile(tileEntity);
+}

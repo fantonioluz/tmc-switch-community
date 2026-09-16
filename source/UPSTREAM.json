@@ -1,0 +1,20 @@
+{
+  "base_repository": "https://github.com/HayatoG/tmc",
+  "working_repository": "https://github.com/fantonioluz/tmc",
+  "base_commit": "70e61b45c2203a220ead3c995a61b3119bf8b9c5",
+  "snapshot_date": "2026-09-16",
+  "dependencies": {
+    "libs/VirtuaAPU": {
+      "commit": "6d5eb47901778a07c284e64bb4de993cf8773a9a",
+      "local_changes": false
+    },
+    "libs/ViruaPPU": {
+      "commit": "5cf5e990d3ecb08ae00d266fea833ccc56286bd5",
+      "local_changes": true
+    },
+    "libs/rcheevos": {
+      "commit": "e9ca3694c862b61235595176dac4b22677848c93",
+      "local_changes": false
+    }
+  }
+}

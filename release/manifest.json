@@ -1,0 +1,139 @@
+{
+  "name": "Minish Cap - Switch Community",
+  "version": "0.1.0",
+  "author": "Switch Community contributors",
+  "region": "USA",
+  "rom_header": "BZME",
+  "rom_sha1": "b4bd50e4131b027c334547b4524e2dbbd4227130",
+  "file": "switch/tmc/tmc.nro",
+  "size": 12257477,
+  "sha256": "78951ccc4bb10ba9cffe95ad244c7285bd60385fee6c2c4a2f5c9f480dff9352",
+  "romfs_size": 0,
+  "source_base_commit": "70e61b45c2203a220ead3c995a61b3119bf8b9c5",
+  "includes_rom": false,
+  "includes_extracted_asset_cache": true,
+  "asset_source": "Runtime asset files supplied by the maintainer",
+  "files": [
+    {
+      "file": "switch/tmc/tmc.nro",
+      "size": 12257477,
+      "sha256": "78951ccc4bb10ba9cffe95ad244c7285bd60385fee6c2c4a2f5c9f480dff9352",
+      "romfs_size": 0
+    },
+    {
+      "file": "switch/tmc/assets/.asset_build_state.json",
+      "size": 882657,
+      "sha256": "2a653afe8b6559e6ea337e6e5043935ff50f62f48d8b92887507c3db8c0a8850"
+    },
+    {
+      "file": "switch/tmc/assets/animations.pak",
+      "size": 8744419,
+      "sha256": "e2b486aec8120e02274280f889fc94e983bc2254a089438e61e4f29e8f344195",
+      "entries": 2958
+    },
+    {
+      "file": "switch/tmc/assets/area_room_headers.json",
+      "size": 58864,
+      "sha256": "26180d31f5b9894f011f2580e42535ead9ee2cfd97cbd613db2fb41933ddd696"
+    },
+    {
+      "file": "switch/tmc/assets/area_room_maps.json",
+      "size": 247907,
+      "sha256": "d011d8bb496f53448f3d7cdeaf56434b6354f88c992ccac3233a11c7a28a656e"
+    },
+    {
+      "file": "switch/tmc/assets/area_tables.json",
+      "size": 936035,
+      "sha256": "4a596a6087fb3b881d2fa43e6038a9d15e30093fe31604dbe6981ba115f9ebf9"
+    },
+    {
+      "file": "switch/tmc/assets/area_tile_sets.json",
+      "size": 76483,
+      "sha256": "f973e5d573c46b425f71637a4538c76eac03670c4f480e615ce559880c85deb1"
+    },
+    {
+      "file": "switch/tmc/assets/area_tiles.json",
+      "size": 61274,
+      "sha256": "157ceda755bd57055ba3b356b60419e1feb195214b02fe7c499915f65dc50f14"
+    },
+    {
+      "file": "switch/tmc/assets/data.pak",
+      "size": 124568,
+      "sha256": "3fc9921df99b065fe71a733fb9277bba982ef82d20ec6202f65b97cd9f4392aa",
+      "entries": 404
+    },
+    {
+      "file": "switch/tmc/assets/gfx.pak",
+      "size": 2017216,
+      "sha256": "d6428d854425c1772b0974f569b9b4af5ce431b7e21fd67fdab6b13de4b7120a",
+      "entries": 245
+    },
+    {
+      "file": "switch/tmc/assets/gfx_groups.json",
+      "size": 37395,
+      "sha256": "dfa716d0e3b28e0d1585f835bbea396852c6c0f0aa4ad4953173f358bd610b43"
+    },
+    {
+      "file": "switch/tmc/assets/maps.pak",
+      "size": 2771080,
+      "sha256": "bf26940fad6625a249a5209468fa06c63bf2483f090e18ae532fcd790a80c61f",
+      "entries": 1831
+    },
+    {
+      "file": "switch/tmc/assets/misc.pak",
+      "size": 982148,
+      "sha256": "edb21288cb8332c1b3ac32e0c42f7349562a8c6efa61c9be22f9e06019ad8eb1",
+      "entries": 3760
+    },
+    {
+      "file": "switch/tmc/assets/palette_groups.json",
+      "size": 343842,
+      "sha256": "1839412f4403e567bddd8bea13e2aae6f5faceaad3de52ab5d116484de73650c"
+    },
+    {
+      "file": "switch/tmc/assets/palettes.json",
+      "size": 347478,
+      "sha256": "dc8a5f0542a8a8e68c72c49722f7b5c5c90cbc1d355adde90c57a8b631d6d0a6"
+    },
+    {
+      "file": "switch/tmc/assets/palettes.pak",
+      "size": 261824,
+      "sha256": "33b64968253b93a7bb5c6878ff592236e3e58c27fc7a43321853b695e0553363",
+      "entries": 2856
+    },
+    {
+      "file": "switch/tmc/assets/room_props.pak",
+      "size": 1335724,
+      "sha256": "093e18077c436b4149ff4b32958dc85220f651f95f32bbe997fefc54e58cf74f",
+      "entries": 2728
+    },
+    {
+      "file": "switch/tmc/assets/sprite_ptrs.json",
+      "size": 260996,
+      "sha256": "fa2913789cb3ed184643434de620626068146b669795588a00651411ed987259"
+    },
+    {
+      "file": "switch/tmc/assets/sprites.pak",
+      "size": 1849684,
+      "sha256": "02ea1797415db723c8f60ed3f6f57c099da310b9032d3bb62b27cc715030f680",
+      "entries": 259
+    },
+    {
+      "file": "switch/tmc/assets/texts.json",
+      "size": 5756059,
+      "sha256": "c96e3ec44436499a68b709b69084bdfcd32cc43662d01366b6b580f1f228caf3"
+    },
+    {
+      "file": "switch/tmc/assets/tilemaps.json",
+      "size": 472586,
+      "sha256": "716064566511c2adc4153570a336bb869a6d830bfb090c687d7de73d89cbcac7"
+    },
+    {
+      "file": "switch/tmc/assets/tilemaps.pak",
+      "size": 2020104,
+      "sha256": "89ea35fc9541c6dd8e4113124b80909c08b5bce6dce74f32efff3b10e7b03915",
+      "entries": 2314
+    }
+  ],
+  "first_install_hardware_validation": "pending"
+}
