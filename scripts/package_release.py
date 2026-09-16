@@ -105,7 +105,7 @@ def main():
                            ('CREDITS.md', 'CREDITS.md'), ('LICENSE.md', 'LICENSE.md'),
                            ('THIRD_PARTY_NOTICES.md', 'THIRD_PARTY_NOTICES.md')]:
             package.write(ROOT / file, name)
-        for name in ('INSTALLATION.md', 'ICON.md', 'ASSETS.md', 'KNOWN_ISSUES.md', 'UPDATING.md', 'HYRULE_FIXES.md', 'NPC_FIXES.md', 'DEVELOPMENT.md', 'RELEASING.md'):
+        for name in ('INSTALLATION.md', 'ICON.md', 'ASSETS.md', 'KNOWN_ISSUES.md', 'UPDATING.md', 'HYRULE_FIXES.md', 'NPC_FIXES.md', 'STABILITY.md', 'DEVELOPMENT.md', 'RELEASING.md'):
             package.write(ROOT / 'docs' / name, 'docs/' + name)
         for file in sorted((ROOT / 'LICENSES').rglob('*')):
             if file.is_file():

@@ -1,73 +1,25 @@
 #include "port_dialog_trace.h"
+#include "port_diagnostics.h"
 #include "room.h"
 
-#ifdef PC_PORT
-
-#include <stdio.h>
-
-static FILE* sDialogLog;
-
-static FILE* DialogTraceFile(void) {
-    if (sDialogLog == NULL) {
-        sDialogLog = fopen("dialog_trace.log", "a");
-        if (sDialogLog != NULL) {
-            setvbuf(sDialogLog, NULL, _IONBF, 0);
-        }
-    }
-    return sDialogLog;
+static u32 Actor(const Entity* e) {
+    return e ? ((u32)e->kind << 24) | ((u32)e->id << 16) |
+                   ((u32)e->type << 8) | e->action : 0;
 }
 
-void Port_DialogTrace_Call(const Entity* entity, const ScriptExecutionContext* context, u32 gba_addr,
-                           void* native_func) {
-    FILE* log = DialogTraceFile();
-    if (log == NULL) {
-        return;
-    }
-    fprintf(log,
-            "[DIALOG] call area=%u room=%u entity=%u:%u:%u addr=0x%08X native=%p context=%p\n",
-            gRoomControls.area, gRoomControls.room, entity->kind, entity->id, entity->type, gba_addr, native_func,
-            (const void*)context);
-}
-
-void Port_DialogTrace_Result(const Entity* entity, u32 gba_addr, void* native_func) {
-    FILE* log = DialogTraceFile();
-    if (log == NULL) {
-        return;
-    }
-    fprintf(log, "[DIALOG] callback entered area=%u room=%u entity=%u:%u:%u addr=0x%08X native=%p\n",
-            gRoomControls.area, gRoomControls.room, entity->kind, entity->id, entity->type, gba_addr, native_func);
-}
-
-void Port_DialogTrace_Show(const Entity* entity, u32 dialog_type, uintptr_t func_value) {
-    FILE* log = DialogTraceFile();
-    if (log == NULL) {
-        return;
-    }
-    fprintf(log, "[DIALOG] show area=%u room=%u entity=%u:%u:%u type=%u func=0x%lX\n",
-            gRoomControls.area, gRoomControls.room, entity->kind, entity->id, entity->type, dialog_type,
-            (unsigned long)func_value);
-}
-
-#else
-
-void Port_DialogTrace_Call(const Entity* entity, const ScriptExecutionContext* context, u32 gba_addr,
-                           void* native_func) {
-    (void)entity;
+void Port_DialogTrace_Call(const Entity* e, const ScriptExecutionContext* context,
+                           u32 gba_addr, void* native_func) {
     (void)context;
-    (void)gba_addr;
-    (void)native_func;
+    Port_Diagnostics_Event(1, gRoomControls.area, gRoomControls.room, Actor(e),
+                           gba_addr, (uintptr_t)native_func);
 }
 
-void Port_DialogTrace_Result(const Entity* entity, u32 gba_addr, void* native_func) {
-    (void)entity;
-    (void)gba_addr;
-    (void)native_func;
+void Port_DialogTrace_Result(const Entity* e, u32 gba_addr, void* native_func) {
+    Port_Diagnostics_Event(2, gRoomControls.area, gRoomControls.room, Actor(e),
+                           gba_addr, (uintptr_t)native_func);
 }
 
-void Port_DialogTrace_Show(const Entity* entity, u32 dialog_type, uintptr_t func_value) {
-    (void)entity;
-    (void)dialog_type;
-    (void)func_value;
+void Port_DialogTrace_Show(const Entity* e, u32 dialog_type, uintptr_t func_value) {
+    Port_Diagnostics_Event(3, gRoomControls.area, gRoomControls.room, Actor(e),
+                           dialog_type, func_value);
 }
-
-#endif

@@ -1,3 +1,4 @@
+#include "port_diagnostics.h"
 #include "gba/io_reg.h"
 #include "main.h"
 #include "port_audio.h"
@@ -290,6 +291,7 @@ double Port_GetCurrentFps(void) {
 
 void VBlankIntrWait(void) {
     u64 nowNs;
+    Port_Diagnostics_Frame();
 
     /* Toggle VSync based on whether we're trying to run faster than the
      * display refresh: fast-forward, or a target FPS preset > 60. With

@@ -20,6 +20,7 @@
  * loop) would be discarded. A dedicated unbuffered file survives that.
  */
 #include <switch.h>
+#include "port_diagnostics.h"
 
 #include <stdio.h>
 #include <stdarg.h>
@@ -55,7 +56,11 @@ static void alog(const char* fmt, ...) {
 void Port_Switch_AppletTick(int* outW, int* outH, int* resized) {
     static AppletOperationMode sLastMode = (AppletOperationMode)-1;
 
+    /* HOME/sleep may suspend this call. Do not diagnose that as a game stall. */
+    Port_Diagnostics_Pause(1);
     appletMainLoop(); /* pump messages so appletGetOperationMode() refreshes */
+    Port_Diagnostics_Frame(); /* also covers the settings overlay */
+    Port_Diagnostics_Pause(0);
 
     *resized = 0;
     AppletOperationMode mode = appletGetOperationMode();

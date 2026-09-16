@@ -1,5 +1,19 @@
 # Histórico de mudanças
 
+## 0.1.2-rc.1 — 2026-09-16
+
+Candidato para validar a quest do livro do Dr. Left no Switch.
+
+- Corrigida tabela de hitboxes dos gatos: endereços GBA de 32 bits eram lidos como ponteiros de 64 bits.
+- Histórico de diálogos passa a usar 64 eventos em memória, sem escrita contínua no cartão.
+- Relatórios próprios de exceção e de ausência de frames, preservados ao reiniciar.
+- Testes de ataques, limites e relatórios com sanitizadores; validação em hardware pendente.
+- Congelamento perto do Minish ainda sem causa comprovada; diagnóstico incluído para o próximo teste.
+
+Detalhes em [Estabilidade](docs/STABILITY.md). Os fixes de portas, biblioteca e
+Lake Hylia e o ícone aprovado permanecem incluídos.
+
+
 ## 0.1.1 — 2026-09-16
 
 - Ícone aprovado de Ezlo incorporado ao NRO como JPEG RGB de 256×256.

@@ -19,5 +19,19 @@
   },
   "new_icon_on_hardware": {
     "status": "pending"
+  },
+  "cat_attack_pointer": {
+    "status": "host_regression_passed_hardware_pending",
+    "date": "2026-09-16"
+  },
+  "dialog_trace_performance": {
+    "status": "per_frame_sd_writes_removed_hardware_measurement_pending"
+  },
+  "crash_and_freeze_reports": {
+    "status": "host_fault_injection_passed_hardware_pending"
+  },
+  "dr_left_quest_freeze": {
+    "status": "reported_cause_unconfirmed",
+    "date": "2026-09-16"
   }
 }

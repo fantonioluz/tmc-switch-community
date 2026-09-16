@@ -1,3 +1,4 @@
+#include "port_diagnostics.h"
 #include "gba/io_reg.h"
 #include "main.h"
 #include "port_config.h"
@@ -236,6 +237,7 @@ int main(int argc, char* argv[]) {
     mkdir("/switch", 0777);
     mkdir("/switch/tmc", 0777);
     chdir("/switch/tmc");
+    Port_Diagnostics_Init();
     /* Capture all the port's fprintf(stderr,...) tracing to a file on the SD.
      * Unbuffered so a hard freeze still leaves the last line on disk — read
      * sdmc:/switch/tmc/tmc.log to see exactly where a hang/crash happened.

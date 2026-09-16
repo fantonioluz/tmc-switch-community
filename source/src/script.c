@@ -1,3 +1,4 @@
+#include "port_diagnostics.h"
 #include "script.h"
 #include "area.h"
 #include "asm.h"
@@ -760,6 +761,7 @@ void ExecuteScript(Entity* entity, ScriptExecutionContext* context) {
                 return;
             }
 #endif
+            Port_Diagnostics_Script((uintptr_t)context->scriptInstructionPointer, cmd);
             lastInstruction = context->scriptInstructionPointer;
             activeScriptInfo->flags &= ~1;
             gScriptCommands[activeScriptInfo->commandIndex](entity, context);

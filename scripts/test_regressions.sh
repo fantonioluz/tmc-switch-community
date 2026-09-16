@@ -20,6 +20,12 @@ gcc -std=gnu11 -DPC_PORT -DUSA -DENGLISH -DNON_MATCHING -DSCENE_TRACE=0 \
     -I. -Iinclude -Iport -Ibuild/USA -O1 -g -fsanitize=address,undefined \
     ../.local/tests/npc_regressions.c -o ../.local/tests/npc_regressions
 ../.local/tests/npc_regressions "$ROM"
+python3 tools/test_cat_regressions.py --emit ../.local/tests/cat_regressions.c
+gcc -std=gnu11 -DPC_PORT -DUSA -DENGLISH -DNON_MATCHING \
+    -I. -Iinclude -Iport -Ibuild/USA -O1 -g -fsanitize=address,undefined \
+    ../.local/tests/cat_regressions.c -o ../.local/tests/cat_regressions
+../.local/tests/cat_regressions "$ROM"
+python3 tools/test_diagnostics.py
 python3 tools/test_door_render_regressions.py --emit ../.local/tests/door_regressions.cpp
 g++ -std=c++17 -O1 -fsanitize=address,undefined ../.local/tests/door_regressions.cpp -o ../.local/tests/door_regressions
 ../.local/tests/door_regressions "$ROM"

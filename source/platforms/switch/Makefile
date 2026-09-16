@@ -64,10 +64,10 @@ TARGET   := tmc_switch_$(REGION_LC)
 
 # Build flavour: RELEASE=0 (default) is the debug build â€” writes tmc.log /
 # applet.log / render_pool.log to the SD and keeps -g debug symbols. RELEASE=1
-# is the GitHub/distribution build â€” defines TMC_RELEASE so all SD logging is
-# compiled out (less SD wear, no per-frame I/O) and drops -g (smaller .nro).
+# suppresses legacy SD tracing with TMC_RELEASE and drops -g. Community
+# crash/stall reporting stays enabled in BOTH flavours, without per-frame SD IO.
 #   make            -> debug   (logs on)
-#   make RELEASE=1  -> release (logs off, stripped)
+#   make RELEASE=1  -> release (legacy traces off, fault reports on)
 RELEASE ?= 0
 
 include sources.mk
@@ -84,6 +84,8 @@ ARCH := -march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -ftls-model=local-
 DEFINES := -D__SWITCH__ -DPC_PORT -DNON_MATCHING -D$(GAME_VER) -DENGLISH -DREVISION=0 \
            -DFMT_HEADER_ONLY=1 -DTMC_PC_VERSION=\"0.2.1.1\" -DTMC_PORT_VERSION=\"0.2.1.1\" \
            -DMODE1_GBA_WIDTH=240 -DCURL_STATICLIB -DTMC_GPU_RENDER $(REGION_DEFINES)
+COMMUNITY_VERSION := $(shell python3 -c 'import json; print(json.load(open("../../../version.json"))["version"])')
+DEFINES += -DTMC_COMMUNITY_VERSION=\"$(COMMUNITY_VERSION)\"
 # Add -DTMC_PERF to enable the frame profiler (switch_perf.c â†’ perf.log).
 
 # Release flavour: define TMC_RELEASE (gates SD logging in the C/C++ sources).
@@ -129,7 +131,7 @@ LIBS := -lSDL2 -lpng -lz -lEGL -lglapi -ldrm_nouveau \
 # libnx-thread parallel-for + background runner for on-device extraction,
 # applet lifecycle = docked resolution + HOME/sleep audio pause).
 SWITCH_SRCS := switch_stubs.c switch_romfs.c switch_parallel.c switch_applet.c \
-               switch_render_pool.c switch_net.c switch_perf.c switch_nxlink.c \
+               switch_render_pool.c switch_net.c switch_perf.c switch_nxlink.c switch_diagnostics.c \
                compat/sdl3_debug_text.c
 
 # rcheevos (RetroAchievements, issue #12) â€” vendored submodule, ROOT-relative so

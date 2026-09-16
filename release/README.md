@@ -1,5 +1,10 @@
 # Minish Cap — arquivos para o cartão SD
 
+> **Candidato de teste 0.1.2-rc.1:** corrige um acesso inválido no ataque dos gatos,
+> remove escrita contínua de diálogos e adiciona relatórios de crash/congelamento.
+> O percurso do Dr. Left ainda precisa de confirmação no Switch.
+
+
 Este pacote contém o NRO e os 21 assets fornecidos pelo mantenedor. **A ROM não
 está incluída.** Cada jogador deve ter uma cópia original USA e fazer seu próprio dump.
 

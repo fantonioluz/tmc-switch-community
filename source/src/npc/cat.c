@@ -53,7 +53,29 @@ void sub_08067A0C(CatEntity*);
 void sub_08067A78(CatEntity*);
 void sub_08067A98(CatEntity*);
 
+#ifdef PC_PORT
+#include "port_rom.h"
+/* This symbol is packed ROM bytes, not an array of native pointers. */
+extern const u8 gUnk_08111154[];
+#else
 extern Hitbox* gUnk_08111154[8];
+#endif
+
+static const Hitbox* Cat_GetAttackHitbox(u32 index) {
+    if (index >= 8) {
+        return &gUnk_08110EF0;
+    }
+#ifdef PC_PORT
+    u32 address = Port_ReadU32(gUnk_08111154 + index * 4);
+    if (gRomData == NULL || address < 0x08000000u || gRomSize < sizeof(Hitbox) ||
+        address - 0x08000000u > gRomSize - sizeof(Hitbox)) {
+        return &gUnk_08110EF0;
+    }
+    return (const Hitbox*)(gRomData + address - 0x08000000u);
+#else
+    return gUnk_08111154[index];
+#endif
+}
 
 void sub_08067790(Entity* this) {
     static const Dialog dialogs[][10] = {
@@ -253,19 +275,12 @@ void sub_08067A0C(CatEntity* this) {
     } else {
         tmp = (super->frame & 7);
         if (tmp != 0) {
-            /* #91 fix: index is `tmp - 1 + (flipX << 2)` which ranges
-             * 0..10 (tmp 1..7, flipX 0..1) — but the table is 8
-             * entries. With flipX=1 and tmp in {5,6,7} we'd read 1..3
-             * pointers past the table and dereference garbage as a
-             * Hitbox*, producing the access violation reported in the
-             * Blue House cat-attack crash. Clamp to the last valid
-             * entry; collision visuals are unaffected at the affected
-             * frames. */
-            int idx = (int)tmp - 1 + ((int)super->spriteSettings.flipX << 2);
-            if (idx < 0)  idx = 0;
+            /* Four attack poses per facing direction. Preserve the existing
+             * index clamp, but decode the GBA pointer at a FOUR-byte stride. */
+            u32 idx = tmp - 1 + (super->spriteSettings.flipX << 2);
             if (idx >= 8) idx = 7;
             COLLISION_ON(super);
-            super->hitbox = gUnk_08111154[idx];
+            super->hitbox = (Hitbox*)Cat_GetAttackHitbox(idx);
         } else {
             sub_08067DDC(super);
         }

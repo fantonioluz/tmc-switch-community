@@ -1,13 +1,13 @@
 {
   "name": "Minish Cap - Switch Community",
-  "version": "0.1.1",
+  "version": "0.1.2-rc.1",
   "author": "Switch Community contributors",
   "region": "USA",
   "rom_header": "BZME",
   "rom_sha1": "b4bd50e4131b027c334547b4524e2dbbd4227130",
   "file": "switch/tmc/tmc.nro",
-  "size": 12290254,
-  "sha256": "f2c8d9eb15fee625a2ce5e29a3822a5b271689f980655e1a0cd0ad3a3dd2ee82",
+  "size": 12294350,
+  "sha256": "9072f79e5a02745079423e13e70a9e4002ca5bde3e40828272f9d401c77a3124",
   "romfs_size": 0,
   "source_base_commit": "70e61b45c2203a220ead3c995a61b3119bf8b9c5",
   "includes_rom": false,
@@ -16,8 +16,8 @@
   "files": [
     {
       "file": "switch/tmc/tmc.nro",
-      "size": 12290254,
-      "sha256": "f2c8d9eb15fee625a2ce5e29a3822a5b271689f980655e1a0cd0ad3a3dd2ee82",
+      "size": 12294350,
+      "sha256": "9072f79e5a02745079423e13e70a9e4002ca5bde3e40828272f9d401c77a3124",
       "romfs_size": 0
     },
     {
@@ -163,6 +163,20 @@
     },
     "new_icon_on_hardware": {
       "status": "pending"
+    },
+    "cat_attack_pointer": {
+      "status": "host_regression_passed_hardware_pending",
+      "date": "2026-09-16"
+    },
+    "dialog_trace_performance": {
+      "status": "per_frame_sd_writes_removed_hardware_measurement_pending"
+    },
+    "crash_and_freeze_reports": {
+      "status": "host_fault_injection_passed_hardware_pending"
+    },
+    "dr_left_quest_freeze": {
+      "status": "reported_cause_unconfirmed",
+      "date": "2026-09-16"
     }
   },
   "first_install_hardware_validation": "pending"

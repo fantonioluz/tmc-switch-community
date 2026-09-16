@@ -1,5 +1,11 @@
 # Minish Cap — Switch Community Edition
 
+> **Test candidate 0.1.2-rc.1:** fixes packed GBA pointers used by cat attacks,
+> removes continuous dialog writes to SD, and adds crash/stall reports.
+> The Dr. Left book quest and reports still need on-console validation.
+> The freeze near the Minish remains unconfirmed; see [stability notes](docs/STABILITY.md).
+
+
 <p align="center"><img src="branding/icon.jpg" width="256" height="256" alt="Minish Cap icon with Ezlo and the sword"></p>
 
 [Português](README.md)

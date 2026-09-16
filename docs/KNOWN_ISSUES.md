@@ -22,6 +22,15 @@ O JPEG aprovado está embutido no NRO, e sua identidade foi verificada byte a by
 A aparência do novo ícone no console e em um atalho ainda precisa de confirmação.
 Veja [Ícone e atalhos](ICON.md).
 
+## Quest do Dr. Left: candidato 0.1.2-rc.1
+
+- Corrigida a leitura de ponteiros GBA no ataque dos gatos; regressão de memória aprovada.
+- Removida a gravação contínua de diálogos no cartão; ganho de desempenho ainda não medido no Switch.
+- Adicionados `crash-last.log`, `freeze-last.log` e `diagnostics.log`; testes simulados aprovados.
+- O congelamento perto do Minish continua com causa não confirmada. O percurso e os relatórios precisam de validação no console.
+
+Veja [investigação e instruções de teste](STABILITY.md). Esta versão é um candidato de teste.
+
 ## Limitações atuais
 
 - A campanha completa ainda não foi validada nesta edição.

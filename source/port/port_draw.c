@@ -1,3 +1,4 @@
+#include "port_diagnostics.h"
 /*
  * port_draw.c — C ports of IWRAM overlay drawing functions.
  *
@@ -215,6 +216,9 @@ void ram_UpdateEntities(u32 mode) {
         while (entity != NULL && entity != (Entity*)list) {
             /* Save current entity in context */
             gUpdateContext.current_entity = entity;
+            Port_Diagnostics_Entity(gRoomControls.area, gRoomControls.room,
+                ((u32)entity->kind << 24) | ((u32)entity->id << 16) |
+                ((u32)entity->type << 8) | entity->action, (uintptr_t)entity);
 
             /* Get next before update (in case entity gets deleted) */
             Entity* next = entity->next;
