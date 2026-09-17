@@ -1,6 +1,10 @@
 # Minish Cap — Switch Community Edition
 
-> **Candidato de teste 0.1.2-rc.2:** corrige um acesso inválido no ataque dos gatos,
+> **Candidato de teste 0.1.2-rc.3:** corrige o overflow do relógio que bloqueia
+> a espera entre frames e restaura a escala/rotação dos sprites ao fechar o menu.
+> Testes locais aprovados; as duas correções ainda aguardam confirmação no Switch.
+
+> **Candidato de teste 0.1.2-rc.3:** corrige um acesso inválido no ataque dos gatos,
 > remove escrita contínua de diálogos e adiciona relatórios de crash/congelamento.
 > O percurso do Dr. Left ainda precisa de confirmação no Switch.
 
@@ -24,7 +28,7 @@ A ROM não está incluída: cada jogador coloca seu próprio dump na pasta do jo
 
 ## Como jogar
 
-1. Baixe o [candidato v0.1.2-rc.2](https://github.com/fantonioluz/tmc-switch-community/releases/download/v0.1.2-rc.2/tmc-switch-community-0.1.2-rc.2-usa.zip), ou use a pasta
+1. Baixe o [candidato v0.1.2-rc.3](https://github.com/fantonioluz/tmc-switch-community/releases/download/v0.1.2-rc.3/tmc-switch-community-0.1.2-rc.3-usa.zip), ou use a pasta
    [`release/switch/tmc/`](release/switch/tmc/) deste repositório.
 2. Copie a pasta `switch` do pacote para a raiz do cartão SD.
 3. Coloque o dump USA do seu cartucho em `switch/tmc/`, com o nome `baserom.gba`.

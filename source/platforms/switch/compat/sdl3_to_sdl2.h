@@ -118,8 +118,11 @@ static inline bool sdl3compat_CreateWindowAndRenderer(const char* title, int w, 
 
 /* ---- Time: SDL3 has nanosecond ticks; SDL2 only ms. ---- */
 static inline uint64_t sdl3compat_GetTicksNS(void) {
-    return (uint64_t)SDL_GetPerformanceCounter() * 1000000000ULL
-           / SDL_GetPerformanceFrequency();
+    /* Multiplying in 64 bits wraps long before the counter itself does.
+     * A backwards jump here leaves frame pacing waiting on an old deadline.
+     * Keep the intermediate wide; GCC on Switch supports unsigned __int128. */
+    return (uint64_t)(((__uint128_t)SDL_GetPerformanceCounter() * 1000000000ULL)
+                      / SDL_GetPerformanceFrequency());
 }
 #define SDL_GetTicksNS sdl3compat_GetTicksNS
 

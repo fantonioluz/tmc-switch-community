@@ -50,8 +50,34 @@ A **0.1.2-rc.2** amplia o diagnóstico sem alterar as regras do jogo:
 
 O procedimento segue a [API de contexto de thread da libnx](https://switchbrew.github.io/libnx/svc_8h.html).
 Os testes simulados verificam a retomada após falha de captura e a ausência de IO
-com a thread pausada. A captura real ainda precisa ser confirmada no Switch.
-**Não há uma correção comprovada do congelamento da fonte nesta versão.**
+com a thread pausada. A captura real foi confirmada pelo relatório da rc.2 recebido em 17/09/2026.
+**A rc.2 era uma versão de diagnóstico; a rc.3 aplica as correções descritas abaixo.**
+
+### rc.3: relógio e retorno do menu
+
+O relatório recebido da rc.2 registrou área `0x2e`, sala `0x02`, etapa
+`FRAME_PACING`. A subtração da base do módulo fornece PC `0x2e4d8` e LR
+`0x2e4e4`. Com o ELF exato arquivado, ambos resolvem para
+`sdl3compat_GetTicksNS`, linhas 121–122 da compilação anterior.
+
+A expressão `counter * 1000000000ULL / frequency` multiplicava em 64 bits.
+Ela estoura quando o contador passa de `18446744073`, fazendo o tempo recuar
+enquanto a espera usa um prazo do intervalo anterior. A música pode continuar
+em outra thread. Agora a multiplicação usa `__uint128_t`, preservando o
+contador monotônico. A [documentação SDL](https://wiki.libsdl.org/SDL2/SDL_GetPerformanceCounter)
+descreve o contador e sua conversão pela frequência da plataforma.
+
+O segundo defeito está no backup do menu: `linker.ld` coloca `gUnk_03000420`
+na posição das 32 matrizes `gOAMControls.unk`, mas o port declara os dois
+como objetos separados. O menu limpava as matrizes reais e restaurava outro
+buffer. A rc.3 copia as matrizes reais nas duas direções e solicita sua
+reconstrução em OAM. Não altera a lógica da quest nem a animação do livro.
+
+`test_clock_and_menu.py` compila a conversão e as operações reais de backup
+e restauração, usando as estruturas do projeto. Verifica o limite antigo,
+três frequências, um ano de uptime, uma espera que atravessa o limite e
+três ciclos de menu preservando as 32 matrizes. A confirmação visual e o
+percurso prolongado no Switch continuam pendentes.
 
 ### Ataque dos gatos
 
@@ -99,9 +125,9 @@ segundo relatório do Atmosphère.
 
 ### Como testar
 
-1. Use o candidato **0.1.2-rc.2**. Faça backup do save e substitua apenas `switch/tmc/tmc.nro` pelo candidato.
+1. Use o candidato **0.1.2-rc.3**. Faça backup do save e substitua apenas `switch/tmc/tmc.nro` pelo candidato.
 2. Refaça a passagem pela lareira do Dr. Left, a casa amarela e o trecho dos gatos.
-3. Experimente aproximar-se dos gatos pelas duas direções e provocar seus ataques.
+3. Abra e feche o menu junto ao livro verde, antes de empurrá-lo. Verifique sua aparência. Experimente aproximar-se dos gatos pelas duas direções e provocar seus ataques.
 4. Se congelar, aguarde pelo menos 12 segundos antes de fechar pelo HOME, se possível.
 5. Envie `diagnostics.log`, `crash-last.log`, `freeze-last.log` e `tmc.log`, com
    o local e o que ocorreu. Informe se HOME respondeu e se a imagem ainda animava.
@@ -126,7 +152,7 @@ Não use símbolos de outra compilação. Os relatórios mostram números em hex
 - [ ] Confirmar ataques dos gatos e percurso completo no Switch.
 - [ ] Medir engasgos no console depois de remover a escrita contínua.
 - [x] Receber relatório de congelamento da rc.1 em hardware.
-- [ ] Confirmar a nova etapa e captura PC/LR da rc.2 em hardware.
+- [x] Confirmar a nova etapa e captura PC/LR da rc.2 em hardware.
 - [ ] Confirmar relatório de exceção real em hardware.
 - [ ] Isolar a causa do congelamento perto do Minish se ele persistir.
 

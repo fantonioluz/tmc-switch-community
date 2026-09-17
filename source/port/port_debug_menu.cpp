@@ -36,6 +36,9 @@ void Port_RA_SimulateUnlock(void); /* debug toast, issue #25 */
 void Port_DebugAction_GiveAllItems(void);
 void Port_DebugAction_MaxHearts(void);
 void Port_DebugAction_HealFull(void);
+int Port_Save_CreateBackup(void);
+char* Port_BugReport_Capture(const char* reason);
+void Port_CheckForUpdates(struct SDL_Window* window);
 void Port_DebugAction_MaxRupees(void);
 void Port_DebugAction_MaxShells(void);
 void Port_DebugAction_AllKinstones(void);
@@ -287,6 +290,7 @@ MenuPage BuildWarpPage(void);
 MenuPage BuildAllAreasPage(void);
 MenuPage BuildAreaRoomsPage(unsigned char area);
 MenuPage BuildDisplaySettingsPage(void);
+MenuPage BuildCommunityPage(void);
 MenuPage BuildSoftSlotsPage(void);
 MenuPage BuildSaveStatesPage(void);
 MenuPage BuildMainPage(void);
@@ -821,9 +825,23 @@ MenuPage BuildSaveStatesPage(void) {
     return p;
 }
 
+MenuPage BuildCommunityPage(void) {
+    MenuPage p; p.title = "MINISH CAP COMMUNITY";
+    p.items.push_back({"Imagem / Image", [](){ Push(BuildDisplaySettingsPage()); }});
+    p.items.push_back({"Audio / Audio", [](){ Toast("Audio: use volume do Switch"); }});
+    p.items.push_back({"Controles / Controls", [](){ Push(BuildSoftSlotsPage()); }});
+    p.items.push_back({"Salvar backup / Backup", [](){ Toast(Port_Save_CreateBackup() ? "Backup criado" : "Nenhum save"); }});
+    p.items.push_back({"Diagnostico / Diagnostics", [](){ char* r=Port_BugReport_Capture("menu"); if(r) free(r); Toast("Relatorio preparado"); }});
+    p.items.push_back({"Atualizacoes / Updates", [](){ Port_CheckForUpdates(NULL); Toast("Verificacao iniciada"); }});
+    p.items.push_back({"Ajuda / Help", [](){ Toast("A confirmar / B voltar"); }});
+    p.items.push_back({"<- Voltar", [](){ Pop(); }});
+    return p;
+}
+
 MenuPage BuildMainPage(void) {
     MenuPage p;
-    p.title = "DEBUG MENU (F8 to close)";
+ p.title = "MINISH CAP COMMUNITY (F8 to close)";
+ p.items.push_back({ "Community Edition", []() { Push(BuildCommunityPage()); } });
     p.items.push_back({ "Items / progress",  []() { Push(BuildItemsPage()); } });
     p.items.push_back({ "Warp",              []() { Push(BuildWarpPage());  } });
     p.items.push_back({ "Display settings",  []() { Push(BuildDisplaySettingsPage()); } });
@@ -1395,15 +1413,16 @@ extern "C" void Port_DebugMenu_Render(SDL_Renderer* renderer, int winW, int winH
     SDL_FRect box = { (winW - boxW) * 0.5f, (winH - boxH) * 0.5f, boxW, boxH };
 
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 220);
+ /* Ezlo green with a parchment panel and gold selection accents. */
+ SDL_SetRenderDrawColor(renderer, 14, 35, 24, 232);
     SDL_RenderFillRect(renderer, &box);
-    SDL_SetRenderDrawColor(renderer, 200, 200, 200, 255);
+ SDL_SetRenderDrawColor(renderer, 221, 193, 112, 255);
     SDL_RenderRect(renderer, &box);
 
     const float textX = box.x + padX;
     float y = box.y + padY;
 
-    SDL_SetRenderDrawColor(renderer, 200, 220, 255, 255);
+ SDL_SetRenderDrawColor(renderer, 255, 236, 168, 255);
     char titleBuf[160];
     if (total > kVisibleItemsMax) {
         std::snprintf(titleBuf, sizeof(titleBuf), "%s  [%d/%d]",
@@ -1427,7 +1446,7 @@ extern "C" void Port_DebugMenu_Render(SDL_Renderer* renderer, int winW, int winH
         if (sel) {
             SDL_SetRenderDrawColor(renderer, 255, 240, 64, 255);
         } else {
-            SDL_SetRenderDrawColor(renderer, 230, 230, 230, 255);
+ SDL_SetRenderDrawColor(renderer, 241, 232, 199, 255);
         }
         SDL_RenderDebugText(renderer, textX, y, line.c_str());
         y += kRowPitch;

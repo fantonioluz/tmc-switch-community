@@ -1,5 +1,17 @@
 # Histórico de mudanças
 
+## 0.1.2-rc.3 — 2026-09-17
+
+- Corrigido overflow de 64 bits na conversão do relógio SDL2 para nanossegundos.
+  O relatório da rc.2 apontou `FRAME_PACING`, com PC/LR dentro dessa conversão.
+  A multiplicação agora usa um intermediário de 128 bits.
+- O menu salva/restaura as matrizes reais de escala/rotação dos sprites no port.
+  O símbolo GBA usado anteriormente era um buffer nativo separado; isso deixava
+  sprites estáticos, como o livro ampliado do Dr. Left, com matrizes apagadas.
+- Regressões do limite de overflow, espera entre frames, um ano de uptime e
+  ciclos de menu. Correções em hardware ainda pendentes.
+
+
 ## 0.1.2-rc.2 — 2026-09-17
 
 Candidato de diagnóstico para o congelamento ao sair da fonte após obter os braceletes.

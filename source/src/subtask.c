@@ -221,7 +221,13 @@ void Subtask_FadeIn(void) {
         MemCopy(&gGFXSlots, &gUI.gfxSlotList, sizeof(GfxSlotList));
         MemCopy(gPaletteList, gUI.palettes, sizeof(gUI.palettes));
         MemCopy(&gRoomControls, &gUI.roomControls, sizeof(RoomControls));
+#ifdef PC_PORT
+        /* On GBA, 0x03000420 aliases gOAMControls.unk (32 affine slots).
+         * The native port's standalone symbol is not that storage. */
+        MemCopy(gOAMControls.unk, gUI.unk_2a8, sizeof(gUI.unk_2a8));
+#else
         MemCopy(gUnk_03000420, gUI.unk_2a8, sizeof(gUI.unk_2a8));
+#endif
         MemCopy(&gActiveScriptInfo, &gUI.activeScriptInfo, sizeof(ActiveScriptInfo));
         sub_0805E958();
         gUI.unk_d = gRoomTransition.field2f;
@@ -272,7 +278,14 @@ void Subtask_FadeOut(void) {
         gMapBottom.bgSettings = gUI.mapBottomBgSettings;
         gMapTop.bgSettings = gUI.mapTopBgSettings;
         MemCopy(&gUI.activeScriptInfo, &gActiveScriptInfo, sizeof(ActiveScriptInfo));
+#ifdef PC_PORT
+        MemCopy(gUI.unk_2a8, gOAMControls.unk, sizeof(gUI.unk_2a8));
+        /* Rebuild hardware OAM matrices even if the static actor never calls
+         * SetAffineInfo again (for example, the book in Dr. Left's house). */
+        gOAMControls.unk[0].unk7 = 1;
+#else
         MemCopy(gUI.unk_2a8, gUnk_03000420, sizeof(gUI.unk_2a8));
+#endif
         MemCopy(gUI.palettes, gPaletteList, sizeof(gUI.palettes));
         MemCopy(&gUI.gfxSlotList, &gGFXSlots, sizeof(gGFXSlots));
         MemCopy(&gUI.roomControls, &gRoomControls, sizeof(RoomControls));

@@ -31,12 +31,20 @@ Veja [Ícone e atalhos](ICON.md).
 
 Veja [investigação e instruções de teste](STABILITY.md). Esta versão é um candidato de teste.
 
-## Fonte após os braceletes: diagnóstico 0.1.2-rc.2
+## Congelamento e livro: correções 0.1.2-rc.3
 
-O novo relatório confirmou ausência de frames ao voltar para Hyrule na rc.1.
-A causa continua sem confirmação. A rc.2 acrescenta etapa de execução e captura
-opcional de PC/LR para localizar o bloqueio, mantendo o histórico em memória.
-Não é anunciada como correção da saída da fonte. Veja [Estabilidade](STABILITY.md).
+O novo log da rc.2 registrou `FRAME_PACING`. O endereço de execução aponta
+para a conversão do relógio, cuja multiplicação em 64 bits estoura e faz o
+tempo recuar. A rc.3 usa um intermediário de 128 bits; testes reproduzem o
+defeito antigo e verificam a espera com a conversão corrigida.
+
+O retorno do menu agora restaura as matrizes reais dos sprites, corrigindo
+uma diferença entre o endereço compartilhado do GBA e os buffers do port.
+Isso afeta objetos com escala/rotação, como o livro ampliado do Dr. Left.
+
+As duas correções passaram em testes locais e aguardam confirmação no Switch.
+Não foi demonstrado que todos os congelamentos anteriores tinham a mesma causa.
+Veja [Estabilidade](STABILITY.md).
 
 ## Limitações atuais
 

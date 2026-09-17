@@ -1,6 +1,11 @@
 # Minish Cap — Switch Community Edition
 
-> **Test candidate 0.1.2-rc.2:** fixes packed GBA pointers used by cat attacks,
+> **Test candidate 0.1.2-rc.3:** fixes a clock overflow that blocks frame pacing
+> and preserves sprite scale/rotation when returning from the pause menu.
+> Host regressions passed; both fixes still need confirmation on Switch.
+> See [stability notes](docs/STABILITY.md).
+
+> **Test candidate 0.1.2-rc.3:** fixes packed GBA pointers used by cat attacks,
 > removes continuous dialog writes to SD, and adds crash/stall reports.
 > The Dr. Left book quest and reports still need on-console validation.
 > The freeze near the Minish remains unconfirmed; see [stability notes](docs/STABILITY.md).

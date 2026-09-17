@@ -15,11 +15,29 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #define EEPROM_SIZE 8192                           /* 8 KB */
 #define EEPROM_BLOCK 8                             /* 8 bytes per block */
 #define EEPROM_BLOCKS (EEPROM_SIZE / EEPROM_BLOCK) /* 1024 */
 #define SAVE_FILENAME "tmc.sav"
+
+int Port_Save_CreateBackup(void) {
+    time_t now = time(NULL); struct tm tmv; char path[64];
+#ifdef _WIN32
+    localtime_s(&tmv, &now);
+#else
+    localtime_r(&now, &tmv);
+#endif
+    strftime(path, sizeof(path), "tmc.sav.bak-%Y%m%d-%H%M%S", &tmv);
+    FILE* in = fopen(SAVE_FILENAME, "rb"); if (!in) return 0;
+    FILE* out = fopen(path, "wb"); if (!out) { fclose(in); return 0; }
+    char buf[1024]; size_t n;
+    while ((n = fread(buf, 1, sizeof(buf), in)) != 0) fwrite(buf, 1, n, out);
+    fclose(out); fclose(in); return 1;
+}
+
+int Port_Save_RestoreLatestBackup(void) { return 0; }
 
 static u8 sEeprom[EEPROM_SIZE];
 static int sEepromDirty = 0; /* set on write, cleared on flush */
