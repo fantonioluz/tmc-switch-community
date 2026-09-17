@@ -6,8 +6,8 @@
   "rom_header": "BZME",
   "rom_sha1": "b4bd50e4131b027c334547b4524e2dbbd4227130",
   "file": "switch/tmc/tmc.nro",
-  "size": 12413134,
-  "sha256": "91f3a5fd88ea782899bd5a5aa858a584ca3231e093740dfe5b467618f3ceca58",
+  "size": 12417230,
+  "sha256": "b38241e70097b9dc15d600750e60b11c2629e5cb67240d9cf54b22a697e6ac3b",
   "romfs_size": 0,
   "source_base_commit": "70e61b45c2203a220ead3c995a61b3119bf8b9c5",
   "includes_rom": false,
@@ -16,8 +16,8 @@
   "files": [
     {
       "file": "switch/tmc/tmc.nro",
-      "size": 12413134,
-      "sha256": "91f3a5fd88ea782899bd5a5aa858a584ca3231e093740dfe5b467618f3ceca58",
+      "size": 12417230,
+      "sha256": "b38241e70097b9dc15d600750e60b11c2629e5cb67240d9cf54b22a697e6ac3b",
       "romfs_size": 0
     },
     {

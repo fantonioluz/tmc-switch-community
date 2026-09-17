@@ -839,7 +839,7 @@ MenuPage BuildCommunityPage(void) {
     p.items.push_back({"Controles / Controls", [](){
         MenuPage controls; controls.title = "CONTROLES";
         controls.items.push_back({"A: confirmar   B: voltar", [](){}});
-        controls.items.push_back({"L+R: abrir este menu", [](){ Toast("Atalho L+R ativo"); }});
+        controls.items.push_back({"Minus: abrir este menu", [](){ Toast("Atalho Minus ativo"); }});
         controls.items.push_back({"Slots de itens", [](){ Push(BuildSoftSlotsPage()); }});
         controls.items.push_back({"<- Voltar", [](){ Pop(); }});
         Push(std::move(controls));
@@ -858,7 +858,7 @@ MenuPage BuildCommunityPage(void) {
     p.items.push_back({"Ajuda / Help", [](){
         MenuPage help; help.title = "AJUDA";
         help.items.push_back({"A confirmar   B voltar", [](){}});
-        help.items.push_back({"L+R abre o menu durante o jogo", [](){}});
+        help.items.push_back({"Minus abre o menu durante o jogo", [](){}});
         help.items.push_back({"F9 prepara relatorio de diagnostico", [](){}});
         help.items.push_back({"Community Edition 1.0.0", [](){}});
         help.items.push_back({"<- Voltar", [](){ Pop(); }});
