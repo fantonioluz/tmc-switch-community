@@ -1,3 +1,4 @@
+#include "port_diagnostics.h"
 #include "asm.h"
 #include "collision.h"
 #include "common.h"
@@ -193,10 +194,12 @@ void LoadResources(void) {
 void WaitForNextFrame(void) {
     gMain.interruptFlag = 0;
     VBlankIntrWait();
+    Port_Diagnostics_Stage(PORT_DIAG_WAIT_INTERRUPT);
     do {
         // Our VBlankIntr will set this flag
     } while (gMain.interruptFlag == 0);
 
+    Port_Diagnostics_Stage(PORT_DIAG_FRAME_RESOURCES);
     sub_080ADD70();
 
     sub_0801C25C();
@@ -212,6 +215,7 @@ void WaitForNextFrame(void) {
             DmaCopy32(3, &gBG2Buffer, VRAM + (gMapTop.bgSettings->control & 0x1f00) * 8, 0x5C0);
     }
     FadeVBlank();
+    Port_Diagnostics_Stage(PORT_DIAG_FRAME_DONE);
 }
 
 void PlayerUpdate(PlayerEntity* this) {

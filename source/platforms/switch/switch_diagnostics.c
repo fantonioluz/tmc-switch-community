@@ -25,6 +25,10 @@ static FsFileSystem sFs;
 static FsFile sCrashFile, sStallFile;
 static bool sFsReady, sCrashReady, sStallReady, sThreadReady;
 static Thread sThread;
+static Handle sMainThread;
+static bool sCanSampleThread;
+static atomic_uint sStage;
+static ThreadContext sMainContext;
 static Result sThreadResult;
 static char sCrashBuffer[REPORT_SIZE], sStallBuffer[REPORT_SIZE];
 __attribute__((aligned(16))) u8 __nx_exception_stack[16384];
@@ -41,6 +45,75 @@ static void Hex(Text* out, const char* name, uint64_t value) {
     char number[19] = "0x0000000000000000";
     for (unsigned i = 0; i < 16; i++) number[17-i] = digits[(value >> (i*4)) & 15];
     Add(out, name); Add(out, number); Add(out, "\n");
+}
+
+static const char* StageName(unsigned stage) {
+    switch (stage) {
+        case PORT_DIAG_STARTUP: return "STARTUP";
+        case PORT_DIAG_TASK: return "TASK";
+        case PORT_DIAG_TASK_DONE: return "TASK_DONE";
+        case PORT_DIAG_MESSAGE: return "MESSAGE";
+        case PORT_DIAG_FADE: return "FADE";
+        case PORT_DIAG_AUDIO: return "AUDIO";
+        case PORT_DIAG_FRAME_WAIT: return "FRAME_WAIT";
+        case PORT_DIAG_ENTITY_WALK: return "ENTITY_WALK";
+        case PORT_DIAG_ENTITY_UPDATE: return "ENTITY_UPDATE";
+        case PORT_DIAG_ENTITY_COLLISION: return "ENTITY_COLLISION";
+        case PORT_DIAG_ENTITY_DONE: return "ENTITY_DONE";
+        case PORT_DIAG_DRAW_UI: return "DRAW_UI";
+        case PORT_DIAG_DRAW_UI_DONE: return "DRAW_UI_DONE";
+        case PORT_DIAG_CARRIED_OBJECT: return "CARRIED_OBJECT";
+        case PORT_DIAG_CARRIED_OBJECT_DONE: return "CARRIED_OBJECT_DONE";
+        case PORT_DIAG_DRAW_SPRITES: return "DRAW_SPRITES";
+        case PORT_DIAG_DRAW_SPRITES_DONE: return "DRAW_SPRITES_DONE";
+        case PORT_DIAG_DELETE_SLEEPING: return "DELETE_SLEEPING";
+        case PORT_DIAG_DELETE_SLEEPING_DONE: return "DELETE_SLEEPING_DONE";
+        case PORT_DIAG_VSYNC_SETUP: return "VSYNC_SETUP";
+        case PORT_DIAG_PENDING_LOAD: return "PENDING_LOAD";
+        case PORT_DIAG_FRAME_PACING: return "FRAME_PACING";
+        case PORT_DIAG_INPUT: return "INPUT";
+        case PORT_DIAG_VBLANK: return "VBLANK";
+        case PORT_DIAG_VBLANK_DONE: return "VBLANK_DONE";
+        case PORT_DIAG_PPU_ENTRY: return "PPU_ENTRY";
+        case PORT_DIAG_ACHIEVEMENTS: return "ACHIEVEMENTS";
+        case PORT_DIAG_APPLET: return "APPLET";
+        case PORT_DIAG_PPU_RENDER: return "PPU_RENDER";
+        case PORT_DIAG_PPU_SCALE: return "PPU_SCALE";
+        case PORT_DIAG_TEXTURE_UPLOAD: return "TEXTURE_UPLOAD";
+        case PORT_DIAG_RENDER_OVERLAY: return "RENDER_OVERLAY";
+        case PORT_DIAG_PRESENT: return "PRESENT";
+        case PORT_DIAG_PRESENT_DONE: return "PRESENT_DONE";
+        case PORT_DIAG_WAIT_INTERRUPT: return "WAIT_INTERRUPT";
+        case PORT_DIAG_FRAME_RESOURCES: return "FRAME_RESOURCES";
+        case PORT_DIAG_FRAME_DONE: return "FRAME_DONE";
+        default: return "UNKNOWN";
+    }
+}
+
+void Port_Diagnostics_Stage(uint32_t stage) {
+    atomic_store_explicit(&sStage, stage, memory_order_relaxed);
+}
+
+/* The sampler uses only kernel calls while the main thread is paused. Resume
+ * it BEFORE formatting or FS IO, even if context capture fails. Do not invoke
+ * unadvertised SVCs: homebrew launchers can grant different permissions. */
+static void SampleMainThread(Text* out) {
+    Hex(out, "main_thread_sampling_available=", sCanSampleThread);
+    if (!sCanSampleThread) return;
+    Result pause = svcSetThreadActivity(sMainThread, ThreadActivity_Paused);
+    Result capture = UINT32_MAX, resume = UINT32_MAX;
+    if (R_SUCCEEDED(pause)) {
+        capture = svcGetThreadContext3(&sMainContext, sMainThread);
+        resume = svcSetThreadActivity(sMainThread, ThreadActivity_Runnable);
+    }
+    Hex(out, "main_pause_result=", pause);
+    Hex(out, "main_context_result=", capture);
+    Hex(out, "main_resume_result=", resume);
+    if (R_SUCCEEDED(pause) && R_SUCCEEDED(capture)) {
+        Hex(out, "main_pc=", sMainContext.pc.x); Hex(out, "main_lr=", sMainContext.lr);
+        Hex(out, "main_sp=", sMainContext.sp); Hex(out, "main_fp=", sMainContext.fp);
+        Hex(out, "main_pstate=", sMainContext.psr);
+    }
 }
 
 void Port_Diagnostics_Frame(void) {
@@ -79,6 +152,8 @@ static void Snapshot(Text* out, const char* reason) {
     Add(out, reason); Add(out, "\nAll numeric values below are hexadecimal.\n");
     Hex(out, "module_base=", (uintptr_t)&_start);
     Hex(out, "heartbeat=", atomic_load(&sFrame));
+    unsigned stage = atomic_load(&sStage);
+    Hex(out, "stage_id=", stage); Add(out, "stage="); Add(out, StageName(stage)); Add(out, "\n");
     Hex(out, "area=", atomic_load(&sArea)); Hex(out, "room=", atomic_load(&sRoom));
     Add(out, "actor bytes: kind/id/type/action; last observed, not necessarily faulting\n");
     Hex(out, "actor=", atomic_load(&sActor)); Hex(out, "entity=", atomic_load(&sEntity));
@@ -127,6 +202,7 @@ static void Watchdog(void* unused) {
             if (sStallReady) {
                 Text out = {sStallBuffer, 0};
                 Snapshot(&out, "STALL: no frame progress for eight watchdog samples; game left running");
+                SampleMainThread(&out);
                 WriteReport(&sStallFile, &out);
             }
         }
@@ -135,6 +211,10 @@ static void Watchdog(void* unused) {
 
 void Port_Diagnostics_Init(void) {
     if (sFsReady) return;
+    /* Init is called by port_main on the actual game thread. */
+    Thread* mainThread = threadGetSelf();
+    sMainThread = mainThread ? mainThread->handle : 0;
+    sCanSampleThread = sMainThread != 0 && envIsSyscallHinted(0x32) && envIsSyscallHinted(0x33);
     sFsReady = R_SUCCEEDED(fsOpenSdCardFileSystem(&sFs));
     if (!sFsReady) return;
     sCrashReady = OpenReport(&sCrashFile, "/switch/tmc/crash-last.log");
@@ -153,6 +233,7 @@ void Port_Diagnostics_Init(void) {
         Hex(&out, "crash_file_ready=", sCrashReady);
         Hex(&out, "freeze_file_ready=", sStallReady);
         Hex(&out, "watchdog_ready=", sThreadReady);
+        Hex(&out, "main_thread_sampling_available=", sCanSampleThread);
         Hex(&out, "watchdog_start_result=", sThreadResult);
         WriteReport(&status, &out); fsFileClose(&status);
     }

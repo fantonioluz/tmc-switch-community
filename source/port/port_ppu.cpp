@@ -1,3 +1,4 @@
+#include "port_diagnostics.h"
 #include "port_ppu.h"
 #include "port_gba_mem.h"
 #include "port_hdma.h"
@@ -359,6 +360,7 @@ extern "C" int Port_Config_FpsScale(void);  /* 1..4 extra size multiplier */
 extern "C" bool Port_Config_FpsBackground(void); /* dark panel behind counter */
 
 extern "C" void Port_PPU_PresentFrame(void) {
+    Port_Diagnostics_Stage(PORT_DIAG_PPU_ENTRY);
     uint16_t dispcnt;
     uint8_t gbaMode;
 
@@ -370,6 +372,7 @@ extern "C" void Port_PPU_PresentFrame(void) {
     /* RetroAchievements per-frame tick (issue #12): evaluates achievement
      * conditions against emulated RAM and fires unlock events. No-op until a
      * game is loaded / user logged in. Lives in port_retroachievements.c. */
+    Port_Diagnostics_Stage(PORT_DIAG_ACHIEVEMENTS);
     Port_RA_DoFrame();
 
     /* Pump the applet message loop once per frame (required for the operation
@@ -378,6 +381,7 @@ extern "C" void Port_PPU_PresentFrame(void) {
      * the OS upscale. Lives in switch_applet.c (isolated from <switch.h>). */
     {
         int nw = 0, nh = 0, resized = 0;
+        Port_Diagnostics_Stage(PORT_DIAG_APPLET);
         Port_Switch_AppletTick(&nw, &nh, &resized);
         if (resized && sWindow != nullptr) {
             SDL_SetWindowSize(sWindow, nw, nh);
@@ -409,6 +413,8 @@ extern "C" void Port_PPU_PresentFrame(void) {
             virtuappu_registers.mode = 1;
             break;
     }
+
+    Port_Diagnostics_Stage(PORT_DIAG_PPU_RENDER);
 
     virtuappu_render_frame();
 
@@ -446,6 +452,7 @@ extern "C" void Port_PPU_PresentFrame(void) {
     }
     (void)gMainOpaque;
 
+    Port_Diagnostics_Stage(PORT_DIAG_PPU_SCALE);
     if (sBackend == RenderBackend::Renderer) {
         int outW = 0;
         int outH = 0;
@@ -473,6 +480,7 @@ extern "C" void Port_PPU_PresentFrame(void) {
                  * pattern needs >= 3 px per phosphor cell to read
                  * correctly, so xBRZ's 4x output is always large enough. */
                 Port_Filter_Apply(sUpscale4xBuf, kHiResW, kHiResH, 4, sFilter);
+                Port_Diagnostics_Stage(PORT_DIAG_TEXTURE_UPLOAD);
                 SDL_UpdateTexture(sHiResTexture, nullptr, sUpscale4xBuf,
                                   kHiResW * (int)sizeof(uint32_t));
                 tex = sHiResTexture;
@@ -495,9 +503,11 @@ extern "C" void Port_PPU_PresentFrame(void) {
                 SDL_Texture* scaledTex = Port_PPU_EnsureScaledTexture(effScale);
                 if (scaled && scaledTex) {
                     Port_Filter_Apply(scaled, sw, sh, effScale, sFilter);
+                    Port_Diagnostics_Stage(PORT_DIAG_TEXTURE_UPLOAD);
                     SDL_UpdateTexture(scaledTex, nullptr, scaled, sw * (int)sizeof(uint32_t));
                     tex = scaledTex;
                 } else {
+                    Port_Diagnostics_Stage(PORT_DIAG_TEXTURE_UPLOAD);
                     SDL_UpdateTexture(sLowResTexture, nullptr, virtuappu_frame_buffer,
                                       MODE1_GBA_WIDTH * (int)sizeof(uint32_t));
                     tex = sLowResTexture;
@@ -507,6 +517,7 @@ extern "C" void Port_PPU_PresentFrame(void) {
                 break;
             }
         }
+        Port_Diagnostics_Stage(PORT_DIAG_RENDER_OVERLAY);
         SDL_SetTextureScaleMode(tex, scale);
         SDL_SetRenderDrawColor(sRenderer, 0, 0, 0, 255);
         SDL_RenderClear(sRenderer);
@@ -561,7 +572,9 @@ extern "C" void Port_PPU_PresentFrame(void) {
             SDL_RenderDebugText(sRenderer, fx, fy, fpsBuf);
 #endif
         }
+        Port_Diagnostics_Stage(PORT_DIAG_PRESENT);
         SDL_RenderPresent(sRenderer);
+        Port_Diagnostics_Stage(PORT_DIAG_PRESENT_DONE);
 #if defined(__SWITCH__) && defined(TMC_PERF)
         Port_Perf_FrameEnd();
 #endif

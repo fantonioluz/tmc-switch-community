@@ -23,6 +23,36 @@ O último callback registrado não prova que aquele NPC provocou a falha.
 
 ## Plano
 
+### Saída da fonte: relatório recebido e candidato rc.2
+
+O mantenedor relatou novo congelamento ao sair da fonte após pegar os braceletes.
+O `freeze-last.log` da **rc.1** confirma ausência de progresso na área `0x02`,
+sala `0x00` (Hyrule). A última entidade registrada é `09:1a:3c:01`: um
+`HoleManager`, tipo 60, ação 1. Essa entrada existe na tabela e não contém
+background de paralaxe. Não foi demonstrado erro nesse controlador.
+
+A identidade da última entidade é mantida enquanto o jogo passa para outras
+rotinas. Logo, o relatório não permite distinguir um bloqueio no controlador
+de um bloqueio posterior na interface, desenho, apresentação ou carregamento.
+O campo de script estava zerado; os callbacks históricos não provam a origem.
+
+A **0.1.2-rc.2** amplia o diagnóstico sem alterar as regras do jogo:
+
+- `stage` identifica a etapa atual, com registros em memória, sem escrita contínua.
+- `main_thread_sampling_available` informa se o carregador anuncia os serviços
+  de pausa/leitura de contexto de thread.
+- Se disponíveis, o detector pausa brevemente a execução principal, coleta o
+  contexto e solicita sua retomada **antes** de formatar ou gravar qualquer relatório.
+- `main_pc`, `main_lr`, `main_sp` e `main_fp` registram a posição coletada.
+- `main_pause_result`, `main_context_result` e `main_resume_result` registram
+  falhas dos serviços. Serviços não anunciados não são invocados; a etapa continua
+  disponível mesmo sem captura nativa.
+
+O procedimento segue a [API de contexto de thread da libnx](https://switchbrew.github.io/libnx/svc_8h.html).
+Os testes simulados verificam a retomada após falha de captura e a ausência de IO
+com a thread pausada. A captura real ainda precisa ser confirmada no Switch.
+**Não há uma correção comprovada do congelamento da fonte nesta versão.**
+
 ### Ataque dos gatos
 
 `gUnk_08111154` contém oito endereços GBA de 32 bits, mas `cat.c` declarava a
@@ -69,7 +99,7 @@ segundo relatório do Atmosphère.
 
 ### Como testar
 
-1. Faça backup do save e substitua apenas `switch/tmc/tmc.nro` pelo candidato.
+1. Use o candidato **0.1.2-rc.2**. Faça backup do save e substitua apenas `switch/tmc/tmc.nro` pelo candidato.
 2. Refaça a passagem pela lareira do Dr. Left, a casa amarela e o trecho dos gatos.
 3. Experimente aproximar-se dos gatos pelas duas direções e provocar seus ataques.
 4. Se congelar, aguarde pelo menos 12 segundos antes de fechar pelo HOME, se possível.
@@ -77,7 +107,7 @@ segundo relatório do Atmosphère.
    o local e o que ocorreu. Informe se HOME respondeu e se a imagem ainda animava.
 
 Para interpretar endereços de código, preserve o ELF exato do candidato. Subtraia
-`module_base` de PC/LR e use `aarch64-none-elf-addr2line -f -C -e arquivo.elf`.
+`module_base` de PC/LR (ou `main_pc`/`main_lr` no relatório de congelamento) e use `aarch64-none-elf-addr2line -f -C -e arquivo.elf`.
 Não use símbolos de outra compilação. Os relatórios mostram números em hexadecimal.
 
 ## Locais do código
@@ -95,7 +125,9 @@ Não use símbolos de outra compilação. Os relatórios mostram números em hex
 
 - [ ] Confirmar ataques dos gatos e percurso completo no Switch.
 - [ ] Medir engasgos no console depois de remover a escrita contínua.
-- [ ] Confirmar gravação e preservação dos relatórios em hardware.
+- [x] Receber relatório de congelamento da rc.1 em hardware.
+- [ ] Confirmar a nova etapa e captura PC/LR da rc.2 em hardware.
+- [ ] Confirmar relatório de exceção real em hardware.
 - [ ] Isolar a causa do congelamento perto do Minish se ele persistir.
 
 ## Limitações e bugs

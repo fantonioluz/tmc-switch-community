@@ -1,3 +1,4 @@
+#include "port_diagnostics.h"
 #include "area.h"
 #include "color.h"
 #include "common.h"
@@ -655,6 +656,7 @@ void RecycleEntities(void) {
 }
 
 void DeleteSleepingEntities(void) {
+    Port_Diagnostics_Stage(PORT_DIAG_DELETE_SLEEPING);
     Entity* ent;
     Entity* next;
     LinkedList* list;
@@ -670,6 +672,7 @@ void DeleteSleepingEntities(void) {
                 DeleteEntityAny(ent);
         }
     } while (++list < &gEntityLists[9]);
+    Port_Diagnostics_Stage(PORT_DIAG_DELETE_SLEEPING_DONE);
 }
 
 void AppendEntityToList(Entity* entity, u32 listIndex) {

@@ -1,5 +1,19 @@
 # Histórico de mudanças
 
+## 0.1.2-rc.2 — 2026-09-17
+
+Candidato de diagnóstico para o congelamento ao sair da fonte após obter os braceletes.
+**A causa ainda não foi isolada; esta versão não anuncia uma correção desse congelamento.**
+
+- O relatório da rc.1 confirmou ausência de frames ao voltar para Hyrule, área 2/sala 0.
+- `freeze-last.log` agora identifica a etapa (entidades, interface, desenho, apresentação, áudio ou recursos).
+- Quando os serviços do sistema estão disponíveis, registra PC/LR da execução travada.
+- A captura retoma a thread antes de formatar/gravar o relatório, inclusive quando a leitura falha.
+- Testes simulam sucesso, serviços indisponíveis e falhas de captura; o novo diagnóstico aguarda teste no Switch.
+
+As correções anteriores e os assets permanecem incluídos. Veja [Estabilidade](docs/STABILITY.md).
+
+
 ## 0.1.2-rc.1 — 2026-09-16
 
 Candidato para validar a quest do livro do Dr. Left no Switch.

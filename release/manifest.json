@@ -1,13 +1,13 @@
 {
   "name": "Minish Cap - Switch Community",
-  "version": "0.1.2-rc.1",
+  "version": "0.1.2-rc.2",
   "author": "Switch Community contributors",
   "region": "USA",
   "rom_header": "BZME",
   "rom_sha1": "b4bd50e4131b027c334547b4524e2dbbd4227130",
   "file": "switch/tmc/tmc.nro",
-  "size": 12294350,
-  "sha256": "9072f79e5a02745079423e13e70a9e4002ca5bde3e40828272f9d401c77a3124",
+  "size": 12302542,
+  "sha256": "453eb4611eb58c203a6419944c7aa09edddd5ad8e6e00220520dec4d76b9174a",
   "romfs_size": 0,
   "source_base_commit": "70e61b45c2203a220ead3c995a61b3119bf8b9c5",
   "includes_rom": false,
@@ -16,8 +16,8 @@
   "files": [
     {
       "file": "switch/tmc/tmc.nro",
-      "size": 12294350,
-      "sha256": "9072f79e5a02745079423e13e70a9e4002ca5bde3e40828272f9d401c77a3124",
+      "size": 12302542,
+      "sha256": "453eb4611eb58c203a6419944c7aa09edddd5ad8e6e00220520dec4d76b9174a",
       "romfs_size": 0
     },
     {
@@ -177,6 +177,19 @@
     "dr_left_quest_freeze": {
       "status": "reported_cause_unconfirmed",
       "date": "2026-09-16"
+    },
+    "fountain_exit_freeze": {
+      "status": "confirmed_stall_cause_unresolved",
+      "reported_by": "maintainer",
+      "tested_version": "0.1.2-rc.1",
+      "evidence": "freeze-last.log: area 2 room 0; last observed actor 09:1a:3c:01; no script instruction recorded"
+    },
+    "freeze_report_on_hardware": {
+      "status": "confirmed_report_received",
+      "tested_version": "0.1.2-rc.1"
+    },
+    "freeze_stage_and_thread_capture": {
+      "status": "host_fault_injection_passed_hardware_pending"
     }
   },
   "first_install_hardware_validation": "pending"

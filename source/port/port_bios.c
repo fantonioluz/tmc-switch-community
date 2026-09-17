@@ -292,6 +292,7 @@ double Port_GetCurrentFps(void) {
 void VBlankIntrWait(void) {
     u64 nowNs;
     Port_Diagnostics_Frame();
+    Port_Diagnostics_Stage(PORT_DIAG_VSYNC_SETUP);
 
     /* Toggle VSync based on whether we're trying to run faster than the
      * display refresh: fast-forward, or a target FPS preset > 60. With
@@ -312,11 +313,13 @@ void VBlankIntrWait(void) {
      * walk and crashed in DeleteAllEntities. */
     {
         extern void Port_QuickSave_TickPendingLoad(void);
+        Port_Diagnostics_Stage(PORT_DIAG_PENDING_LOAD);
         Port_QuickSave_TickPendingLoad();
     }
 
     Port_PPU_PresentFrame();
     port_hdma_vblank_reset();
+    Port_Diagnostics_Stage(PORT_DIAG_FRAME_PACING);
 
     /* Deadline-based pacing: each frame's target is the previous
      * frame's target + frameTimeNs (a fixed cadence on an ideal grid),
@@ -376,10 +379,13 @@ void VBlankIntrWait(void) {
         exit(0);
     }
 
+    Port_Diagnostics_Stage(PORT_DIAG_INPUT);
     Port_PumpEvents();
     Port_UpdateInput();
 
+    Port_Diagnostics_Stage(PORT_DIAG_VBLANK);
     VBlankIntr();
+    Port_Diagnostics_Stage(PORT_DIAG_VBLANK_DONE);
 }
 
 /* ---- BIOS functions ---- */

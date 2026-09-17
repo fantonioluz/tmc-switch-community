@@ -1,3 +1,4 @@
+#include "port_diagnostics.h"
 #include "ui.h"
 #include "area.h"
 #include "common.h"
@@ -79,6 +80,7 @@ void UpdateUIElements(void) {
 }
 
 void DrawUIElements(void) {
+    Port_Diagnostics_Stage(PORT_DIAG_DRAW_UI);
     u32 index;
     UIElement* element;
     UIElementDefinition* definition;
@@ -100,6 +102,7 @@ void DrawUIElements(void) {
             DrawDirect(definition->spriteIndex, element->frameIndex);
         }
     }
+    Port_Diagnostics_Stage(PORT_DIAG_DRAW_UI_DONE);
 }
 
 void sub_0801C25C(void) {

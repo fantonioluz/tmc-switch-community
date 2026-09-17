@@ -18,13 +18,20 @@ typedef uint64_t u64;
 typedef unsigned Result;
 typedef struct { int id; } FsFileSystem;
 typedef struct { int id; } FsFile;
-typedef struct { int id; } Thread;
+typedef unsigned Handle;
+typedef struct { Handle handle; } Thread;
+typedef enum { ThreadActivity_Runnable, ThreadActivity_Paused } ThreadActivity;
 typedef union { uint64_t x; } Register;
 typedef struct {
     unsigned error_desc;
     Register cpu_gprs[29], pc, lr, sp, fp, far;
     unsigned esr, pstate;
 } ThreadExceptionDump;
+typedef struct { Register pc; uint64_t lr, sp, fp; unsigned psr; } ThreadContext;
+Thread* threadGetSelf(void);
+bool envIsSyscallHinted(unsigned);
+Result svcSetThreadActivity(Handle, ThreadActivity);
+Result svcGetThreadContext3(ThreadContext*, Handle);
 #define R_SUCCEEDED(x) ((x) == 0)
 #define FsOpenMode_Write 2
 #define FsWriteOption_Flush 1
@@ -53,6 +60,28 @@ static char files[3][REPORT_SIZE];
 static unsigned writes[3], truncates[3], steps, mode;
 static void (*watchdog)(void*);
 static jmp_buf jump;
+static bool mainPaused;
+static unsigned pauseCalls, captureCalls, resumeCalls, captureFailure, pauseFailure;
+static Thread mainThread = {77};
+Thread* threadGetSelf(void) { return &mainThread; }
+bool envIsSyscallHinted(unsigned n) { assert(n == 0x32 || n == 0x33); return true; }
+Result svcSetThreadActivity(Handle h, ThreadActivity state) {
+    assert(h == 77);
+    if (state == ThreadActivity_Paused) {
+        pauseCalls++; if (pauseFailure) return pauseFailure;
+        assert(!mainPaused); mainPaused = true;
+    } else {
+        resumeCalls++; assert(mainPaused); mainPaused = false;
+    }
+    return 0;
+}
+Result svcGetThreadContext3(ThreadContext* ctx, Handle h) {
+    assert(h == 77 && mainPaused); captureCalls++;
+    if (captureFailure) return captureFailure;
+    ctx->pc.x = 0x123456789; ctx->lr = 0x987654321;
+    ctx->sp = 0x456; ctx->fp = 0x654; ctx->psr = 0;
+    return 0;
+}
 Result fsOpenSdCardFileSystem(FsFileSystem* f) { f->id = 1; return 0; }
 Result fsFsCreateFile(FsFileSystem* f, const char* p, int a, int b) { return 1; }
 Result fsFsOpenFile(FsFileSystem* f, const char* p, int m, FsFile* out) {
@@ -63,6 +92,7 @@ Result fsFileSetSize(FsFile* f, uint64_t s) {
     assert(s < REPORT_SIZE); truncates[f->id]++; files[f->id][s] = 0; return 0;
 }
 Result fsFileWrite(FsFile* f, int64_t off, const void* p, uint64_t n, unsigned opt) {
+    assert(!mainPaused); /* Never perform filesystem IO with main thread suspended. */
     assert(off == 0 && opt == FsWriteOption_Flush);
     assert(n < REPORT_SIZE); memcpy(files[f->id], p, n); files[f->id][n] = 0;
     writes[f->id]++; return 0;
@@ -96,6 +126,7 @@ int main(void) {
     RunWatchdog(1); assert(!writes[1]); /* ordinary running game */
     RunWatchdog(2); assert(!writes[1]); /* HOME/pause */
     Port_Diagnostics_Pause(0);
+    Port_Diagnostics_Stage(PORT_DIAG_PRESENT);
     Port_Diagnostics_Entity(2, 3, 0x071f0104, 0x1234);
     Port_Diagnostics_Script(0x8001234, 0x444);
     for (unsigned i = 0; i < 10000; i++)
@@ -107,6 +138,22 @@ int main(void) {
     unsigned events = 0;
     for (char* p = files[1]; (p = strstr(p, "event=")); p++) events++;
     assert(events == TRACE_COUNT);
+    assert(strstr(files[1], "stage=PRESENT"));
+    assert(strstr(files[1], "main_pc=0x0000000123456789"));
+    assert(strstr(files[1], "main_lr=0x0000000987654321"));
+    assert(pauseCalls == 1 && captureCalls == 1 && resumeCalls == 1 && !mainPaused);
+    /* A failed register capture must still resume the game thread. */
+    char sample[REPORT_SIZE]; Text output = {sample, 0};
+    captureFailure = 123; SampleMainThread(&output);
+    assert(resumeCalls == 2 && !mainPaused && !strstr(sample, "main_pc="));
+    /* A failed suspension must not try to resume an unsuspended thread. */
+    captureFailure = 0; pauseFailure = 123; output.size = 0; SampleMainThread(&output);
+    assert(resumeCalls == 2 && captureCalls == 2 && !mainPaused);
+    /* Unavailable syscalls must never be invoked, even on a stall. */
+    unsigned attempts = pauseCalls;
+    sCanSampleThread = false; output.size = 0; SampleMainThread(&output);
+    assert(pauseCalls == attempts && strstr(sample, "sampling_available=0x0000000000000000"));
+    pauseFailure = 0; sCanSampleThread = true;
     ThreadExceptionDump ctx = {0};
     ctx.pc.x = 0x123456; ctx.lr.x = 0xabcdef; ctx.far.x = 0x0811111c08111114ULL;
     if (setjmp(jump) == 0) __libnx_exception_handler(&ctx);
@@ -116,7 +163,7 @@ int main(void) {
     if (setjmp(jump) == 0) __libnx_exception_handler(&ctx);
     assert(writes[0] == 1); /* recursive fault does not retry damaged IO */
     userAppExit();
-    puts("Diagnostics passed: no hot-path IO, preserved logs, ring wrap, pause, stall and CPU dump.");
+    puts("Diagnostics passed: no hot-path IO, preserved logs, ring wrap, pause, stall stages, main-thread PC/LR capture and CPU dump.");
 }
 '''
 

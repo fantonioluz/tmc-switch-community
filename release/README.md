@@ -1,6 +1,6 @@
 # Minish Cap — arquivos para o cartão SD
 
-> **Candidato de teste 0.1.2-rc.1:** corrige um acesso inválido no ataque dos gatos,
+> **Candidato de teste 0.1.2-rc.2:** corrige um acesso inválido no ataque dos gatos,
 > remove escrita contínua de diálogos e adiciona relatórios de crash/congelamento.
 > O percurso do Dr. Left ainda precisa de confirmação no Switch.
 

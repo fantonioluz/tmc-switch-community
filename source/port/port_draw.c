@@ -215,6 +215,7 @@ void ram_UpdateEntities(u32 mode) {
 
         while (entity != NULL && entity != (Entity*)list) {
             /* Save current entity in context */
+            Port_Diagnostics_Stage(PORT_DIAG_ENTITY_UPDATE);
             gUpdateContext.current_entity = entity;
             Port_Diagnostics_Entity(gRoomControls.area, gRoomControls.room,
                 ((u32)entity->kind << 24) | ((u32)entity->id << 16) |
@@ -240,16 +241,19 @@ void ram_UpdateEntities(u32 mode) {
 
             /* Update collision if entity is still alive (same as original) */
             if (gUpdateContext.current_entity == entity) {
+                Port_Diagnostics_Stage(PORT_DIAG_ENTITY_COLLISION);
                 UpdateCollision(entity);
             }
 
             /* Move to next entity */
+            Port_Diagnostics_Stage(PORT_DIAG_ENTITY_WALK);
             entity = next;
         }
     }
 
     /* Clear current entity context */
     gUpdateContext.current_entity = NULL;
+    Port_Diagnostics_Stage(PORT_DIAG_ENTITY_DONE);
 }
 
 void ram_ClearAndUpdateEntities(void) {

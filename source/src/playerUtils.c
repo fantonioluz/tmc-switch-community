@@ -1,3 +1,4 @@
+#include "port_diagnostics.h"
 #include "area.h"
 #include "asm.h"
 #include "beanstalkSubtask.h"
@@ -1711,9 +1712,11 @@ void ClearPlayerState(void) {
 }
 
 void UpdateCarriedObject(void) {
+    Port_Diagnostics_Stage(PORT_DIAG_CARRIED_OBJECT);
     if ((u8)(gPlayerState.heldObject - 3) < 2) {
         sub_08078D60();
     }
+    Port_Diagnostics_Stage(PORT_DIAG_CARRIED_OBJECT_DONE);
 }
 
 void sub_08078CD0(PlayerEntity* this) {

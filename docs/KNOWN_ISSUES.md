@@ -31,6 +31,13 @@ Veja [Ícone e atalhos](ICON.md).
 
 Veja [investigação e instruções de teste](STABILITY.md). Esta versão é um candidato de teste.
 
+## Fonte após os braceletes: diagnóstico 0.1.2-rc.2
+
+O novo relatório confirmou ausência de frames ao voltar para Hyrule na rc.1.
+A causa continua sem confirmação. A rc.2 acrescenta etapa de execução e captura
+opcional de PC/LR para localizar o bloqueio, mantendo o histórico em memória.
+Não é anunciada como correção da saída da fonte. Veja [Estabilidade](STABILITY.md).
+
 ## Limitações atuais
 
 - A campanha completa ainda não foi validada nesta edição.

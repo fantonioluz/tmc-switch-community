@@ -1,3 +1,4 @@
+#include "port_diagnostics.h"
 /**
  * @file main.c
  *
@@ -83,15 +84,23 @@ void AgbMain(void) {
                 }
 
                 gMain.ticks++;
+                Port_Diagnostics_Stage(PORT_DIAG_TASK);
                 sTaskHandlers[gMain.task]();
+
+                Port_Diagnostics_Stage(PORT_DIAG_MESSAGE);
 
                 MessageMain();
 
+                Port_Diagnostics_Stage(PORT_DIAG_FADE);
+
                 FadeMain();
+
+                Port_Diagnostics_Stage(PORT_DIAG_AUDIO);
 
                 AudioMain();
                 break;
         }
+        Port_Diagnostics_Stage(PORT_DIAG_FRAME_WAIT);
         WaitForNextFrame();
     }
 }

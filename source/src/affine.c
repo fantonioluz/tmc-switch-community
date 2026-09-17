@@ -1,3 +1,4 @@
+#include "port_diagnostics.h"
 #include "global.h"
 #include "main.h"
 #include "room.h"
@@ -97,6 +98,7 @@ void CopyOAM(void) {
 }
 
 void DrawEntities(void) {
+    Port_Diagnostics_Stage(PORT_DIAG_DRAW_SPRITES);
     void (*fn)(void);
 
     gOAMControls._0[6] = gRoomTransition.field2f ? 15 : 0;
@@ -106,6 +108,7 @@ void DrawEntities(void) {
 
     fn = &ram_DrawEntities;
     fn();
+    Port_Diagnostics_Stage(PORT_DIAG_DRAW_SPRITES_DONE);
 }
 
 // TODO second parameter is a frame obj entry from gFrameObjLists

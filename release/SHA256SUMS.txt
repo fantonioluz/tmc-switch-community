@@ -1,4 +1,4 @@
-9072f79e5a02745079423e13e70a9e4002ca5bde3e40828272f9d401c77a3124  switch/tmc/tmc.nro
+453eb4611eb58c203a6419944c7aa09edddd5ad8e6e00220520dec4d76b9174a  switch/tmc/tmc.nro
 2a653afe8b6559e6ea337e6e5043935ff50f62f48d8b92887507c3db8c0a8850  switch/tmc/assets/.asset_build_state.json
 e2b486aec8120e02274280f889fc94e983bc2254a089438e61e4f29e8f344195  switch/tmc/assets/animations.pak
 26180d31f5b9894f011f2580e42535ead9ee2cfd97cbd613db2fb41933ddd696  switch/tmc/assets/area_room_headers.json
