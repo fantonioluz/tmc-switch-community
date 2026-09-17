@@ -25,7 +25,12 @@ void Port_CheckForUpdates(SDL_Window* window) { (void)window; char* json=NULL; s
  char tag[32]={0}; if(!JsonString(json,"tag_name",tag,sizeof tag)||!IsNewer(tag)){UpdateLog("Versao atualizada");free(json);return;}
  const char* a=json; char url[512]={0};
  while((a=strstr(a,"browser_download_url"))!=NULL) { char candidate[512]={0}; JsonString(a,"browser_download_url",candidate,sizeof candidate); if(strstr(candidate,".nro")){snprintf(url,sizeof url,"%s",candidate);break;} ++a; }
- if(!url[0]||!strstr(url,".nro")){UpdateLog("Release sem tmc.nro anexado");free(json);return;}
+ if(!url[0]||!strstr(url,".nro")) {
+   /* Releases also contain the NRO in the tagged source tree. This fallback
+    * keeps the updater working even when GitHub's binary asset upload is not
+    * available, while still using the exact release tag selected above. */
+   snprintf(url,sizeof url,"https://raw.githubusercontent.com/fantonioluz/tmc-switch-community/%s/release/switch/tmc/tmc.nro",tag);
+ }
  UpdateLog(DownloadNro(url)?"Download concluido; reinicie para aplicar":"Falha ao validar o NRO"); free(json); }
 #else
 
