@@ -1,4 +1,4 @@
-# Minish Cap — Switch Community Edition
+# Minish Cap â Switch Community Edition
 
 > **Test candidate 0.1.2-rc.3:** fixes a clock overflow that blocks frame pacing
 > and preserves sprite scale/rotation when returning from the pause menu.
@@ -13,7 +13,7 @@
 
 <p align="center"><img src="branding/icon.jpg" width="256" height="256" alt="Minish Cap icon with Ezlo and the sword"></p>
 
-[Português](README.md)
+[PortuguÃªs](README.md)
 
 A Nintendo Switch native port maintained through fixes found during regular
 play. This edition starts with fixes for Hyrule door positions and the broken
@@ -58,3 +58,8 @@ The repository layout and NPC/first-install crash investigation were informed by
 Its exclusive features are not claimed by this separate edition.
 
 This is an unofficial fan project, unaffiliated with Nintendo or Capcom.
+
+## Community menu and updates
+
+On Switch, press **Minus (-)** during gameplay to open the Community menu. It includes Image, Audio, Controls, Saves/Backups, Diagnostics, Achievements, Updates and Help. Manual backups are timestamped as 	mc.sav.bak-AAAAMMDD-HHMMSSmc.sav.bak-YYYYMMDD-HHMMSS.
+

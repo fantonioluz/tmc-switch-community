@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <dirent.h>
 
 #define EEPROM_SIZE 8192                           /* 8 KB */
 #define EEPROM_BLOCK 8                             /* 8 bytes per block */
@@ -37,7 +38,26 @@ int Port_Save_CreateBackup(void) {
     fclose(out); fclose(in); return 1;
 }
 
-int Port_Save_RestoreLatestBackup(void) { return 0; }
+int Port_Save_RestoreLatestBackup(void) {
+    DIR* dir = opendir(".");
+    if (!dir) return 0;
+    char latest[128] = {0};
+    struct dirent* ent;
+    while ((ent = readdir(dir)) != NULL) {
+        if (strncmp(ent->d_name, "tmc.sav.bak-", 13) == 0 && strcmp(ent->d_name, latest) > 0)
+            snprintf(latest, sizeof latest, "%s", ent->d_name);
+    }
+    closedir(dir);
+    if (!latest[0]) return 0;
+    FILE* in = fopen(latest, "rb");
+    FILE* out = fopen(SAVE_FILENAME, "wb");
+    if (!in || !out) { if (in) fclose(in); if (out) fclose(out); return 0; }
+    char buf[1024]; size_t n; int ok = 1;
+    while ((n = fread(buf, 1, sizeof buf, in)) != 0)
+        if (fwrite(buf, 1, n, out) != n) { ok = 0; break; }
+    fclose(in); fclose(out);
+    return ok;
+}
 
 static u8 sEeprom[EEPROM_SIZE];
 static int sEepromDirty = 0; /* set on write, cleared on flush */

@@ -237,6 +237,9 @@ int main(int argc, char* argv[]) {
     mkdir("/switch", 0777);
     mkdir("/switch/tmc", 0777);
     chdir("/switch/tmc");
+#ifdef __SWITCH__
+    { extern void Port_Switch_ApplyPendingUpdate(void); Port_Switch_ApplyPendingUpdate(); }
+#endif
     Port_Diagnostics_Init();
     /* Capture all the port's fprintf(stderr,...) tracing to a file on the SD.
      * Unbuffered so a hard freeze still leaves the last line on disk — read

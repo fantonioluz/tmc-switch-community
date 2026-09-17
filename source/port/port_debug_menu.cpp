@@ -39,6 +39,7 @@ void Port_DebugAction_HealFull(void);
 int Port_Save_CreateBackup(void);
 char* Port_BugReport_Capture(const char* reason);
 void Port_CheckForUpdates(struct SDL_Window* window);
+int Port_Save_RestoreLatestBackup(void);
 void Port_DebugAction_MaxRupees(void);
 void Port_DebugAction_MaxShells(void);
 void Port_DebugAction_AllKinstones(void);
@@ -828,12 +829,41 @@ MenuPage BuildSaveStatesPage(void) {
 MenuPage BuildCommunityPage(void) {
     MenuPage p; p.title = "MINISH CAP COMMUNITY";
     p.items.push_back({"Imagem / Image", [](){ Push(BuildDisplaySettingsPage()); }});
-    p.items.push_back({"Audio / Audio", [](){ Toast("Audio: use volume do Switch"); }});
-    p.items.push_back({"Controles / Controls", [](){ Push(BuildSoftSlotsPage()); }});
-    p.items.push_back({"Salvar backup / Backup", [](){ Toast(Port_Save_CreateBackup() ? "Backup criado" : "Nenhum save"); }});
+    p.items.push_back({"Audio / Audio", [](){
+        MenuPage audio; audio.title = "AUDIO";
+        audio.items.push_back({"Volume geral: use o Switch", [](){ Toast("Volume controlado pelo Switch"); }});
+        audio.items.push_back({"Musica e efeitos: ativos", [](){ Toast("Audio do jogo ativo"); }});
+        audio.items.push_back({"<- Voltar", [](){ Pop(); }});
+        Push(std::move(audio));
+    }});
+    p.items.push_back({"Controles / Controls", [](){
+        MenuPage controls; controls.title = "CONTROLES";
+        controls.items.push_back({"A: confirmar   B: voltar", [](){}});
+        controls.items.push_back({"L+R: abrir este menu", [](){ Toast("Atalho L+R ativo"); }});
+        controls.items.push_back({"Slots de itens", [](){ Push(BuildSoftSlotsPage()); }});
+        controls.items.push_back({"<- Voltar", [](){ Pop(); }});
+        Push(std::move(controls));
+    }});
+    p.items.push_back({"Saves / Backups", [](){
+        MenuPage saves; saves.title = "SAVES";
+        saves.items.push_back({"Criar backup datado", [](){ Toast(Port_Save_CreateBackup() ? "Backup criado" : "Nenhum save"); }});
+        saves.items.push_back({"Restaurar backup mais recente", [](){ Toast(Port_Save_RestoreLatestBackup() ? "Backup restaurado" : "Backup nao encontrado"); }});
+        saves.items.push_back({"Backup: tmc.sav.bak-AAAAmmdd-HHMMSS", [](){}});
+        saves.items.push_back({"<- Voltar", [](){ Pop(); }});
+        Push(std::move(saves));
+    }});
     p.items.push_back({"Diagnostico / Diagnostics", [](){ char* r=Port_BugReport_Capture("menu"); if(r) free(r); Toast("Relatorio preparado"); }});
     p.items.push_back({"Atualizacoes / Updates", [](){ Port_CheckForUpdates(NULL); Toast("Verificacao iniciada"); }});
-    p.items.push_back({"Ajuda / Help", [](){ Toast("A confirmar / B voltar"); }});
+    p.items.push_back({"Conquistas / Achievements", [](){ Toast("RetroAchievements no menu Display"); }});
+    p.items.push_back({"Ajuda / Help", [](){
+        MenuPage help; help.title = "AJUDA";
+        help.items.push_back({"A confirmar   B voltar", [](){}});
+        help.items.push_back({"L+R abre o menu durante o jogo", [](){}});
+        help.items.push_back({"F9 prepara relatorio de diagnostico", [](){}});
+        help.items.push_back({"Community Edition 1.0.0", [](){}});
+        help.items.push_back({"<- Voltar", [](){ Pop(); }});
+        Push(std::move(help));
+    }});
     p.items.push_back({"<- Voltar", [](){ Pop(); }});
     return p;
 }
@@ -880,7 +910,7 @@ extern "C" void Port_DebugMenu_OpenSettings(void) {
     }
     sOpen = true;
     sPageStack.clear();
-    sPageStack.push_back(BuildDisplaySettingsPage());
+    sPageStack.push_back(BuildMainPage());
 }
 
 extern "C" bool Port_DebugMenu_IsOpen(void) {

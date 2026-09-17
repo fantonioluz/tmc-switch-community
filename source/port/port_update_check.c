@@ -1,7 +1,32 @@
 #ifdef __SWITCH__
-/* No network update check on Switch (no popen/curl shell-out). No-op. */
 #include "port_update_check.h"
-void Port_CheckForUpdates(SDL_Window* window) { (void)window; }
+#include "port_version.h"
+#include "../platforms/switch/switch_net.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+#define TMC_REPO_API "https://api.github.com/repos/fantonioluz/tmc-switch-community/releases/latest"
+static void UpdateLog(const char* s) { FILE* f=fopen("update.log","ab"); if(f){fprintf(f,"[update] %s\n",s);fclose(f);} }
+static const char* JsonString(const char* j,const char* key,char* out,size_t cap) {
+ char needle[80]; snprintf(needle,sizeof needle,"\"%s\"",key); const char* p=strstr(j,needle); if(!p)return NULL;
+ p=strchr(p+strlen(needle),':'); if(!p)return NULL; p=strchr(p,'\"'); if(!p)return NULL; ++p;
+ size_t n=0; while(p[n] && p[n]!='\"' && n+1<cap){out[n]=p[n];++n;} out[n]='\0'; return n?out:NULL;
+}
+static int IsNewer(const char* tag) { int a[3]={0},b[3]={0};
+ if(sscanf(tag,"v%d.%d.%d",&a[0],&a[1],&a[2])!=3 || sscanf(TMC_COMMUNITY_VERSION,"%d.%d.%d",&b[0],&b[1],&b[2])!=3)return 0;
+ for(int i=0;i<3;++i)if(a[i]!=b[i])return a[i]>b[i]; return 0; }
+static int DownloadNro(const char* url) { char* body=NULL; size_t len=0; long st=Port_Net_HttpRequest(url,NULL,NULL,&body,&len);
+ if(st!=200||!body||len<1024*1024||len<0x14||memcmp(body+0x10,"NRO0",4)!=0){free(body);return 0;}
+ FILE* f=fopen("tmc.nro.update","wb"); if(!f){free(body);return 0;} int ok=fwrite(body,1,len,f)==len; fflush(f); fclose(f); free(body); if(!ok)remove("tmc.nro.update"); return ok; }
+void Port_CheckForUpdates(SDL_Window* window) { (void)window; char* json=NULL; size_t len=0;
+ if(Port_Net_HttpRequest(TMC_REPO_API,NULL,NULL,&json,&len)!=200||!json){UpdateLog("Falha ao consultar o GitHub");return;}
+ char tag[32]={0}; if(!JsonString(json,"tag_name",tag,sizeof tag)||!IsNewer(tag)){UpdateLog("Versao atualizada");free(json);return;}
+ const char* a=json; char url[512]={0};
+ while((a=strstr(a,"browser_download_url"))!=NULL) { char candidate[512]={0}; JsonString(a,"browser_download_url",candidate,sizeof candidate); if(strstr(candidate,".nro")){snprintf(url,sizeof url,"%s",candidate);break;} ++a; }
+ if(!url[0]||!strstr(url,".nro")){UpdateLog("Release sem tmc.nro anexado");free(json);return;}
+ UpdateLog(DownloadNro(url)?"Download concluido; reinicie para aplicar":"Falha ao validar o NRO"); free(json); }
 #else
 
 #ifndef _WIN32
