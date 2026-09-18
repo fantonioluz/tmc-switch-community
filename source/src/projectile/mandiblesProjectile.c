@@ -45,6 +45,13 @@ void MandiblesProjectile(MandiblesProjectileEntity* this) {
     if (entity == NULL) {
         entity = super->parent;
     }
+    /* The beetle can die in the same frame as its mandibles.  Entity links
+     * are cleared during deletion, so never dereference either link after
+     * both sides have disappeared. */
+    if (entity == NULL) {
+        DeleteThisEntity();
+        return;
+    }
     if ((entity->confusedTime == 0) && ((super->flags & ENT_COLLIDE) == 0)) {
         COLLISION_ON(super);
     }
@@ -136,6 +143,7 @@ void MandiblesProjectile_Action3(MandiblesProjectileEntity* this) {
     entity = super->child;
     if (entity == NULL) {
         DeleteThisEntity();
+        return;
     }
     if (entity->next == NULL) {
         DeleteThisEntity();

@@ -1,13 +1,13 @@
 {
   "name": "Minish Cap - Switch Community",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "author": "Switch Community contributors",
   "region": "USA",
   "rom_header": "BZME",
   "rom_sha1": "b4bd50e4131b027c334547b4524e2dbbd4227130",
   "file": "switch/tmc/tmc.nro",
   "size": 12417230,
-  "sha256": "b38241e70097b9dc15d600750e60b11c2629e5cb67240d9cf54b22a697e6ac3b",
+  "sha256": "40509fb3491d59fc3e6d324f7e010931b045060228c262abb94faf2b25679863",
   "romfs_size": 0,
   "source_base_commit": "70e61b45c2203a220ead3c995a61b3119bf8b9c5",
   "includes_rom": false,
@@ -17,7 +17,7 @@
     {
       "file": "switch/tmc/tmc.nro",
       "size": 12417230,
-      "sha256": "b38241e70097b9dc15d600750e60b11c2629e5cb67240d9cf54b22a697e6ac3b",
+      "sha256": "40509fb3491d59fc3e6d324f7e010931b045060228c262abb94faf2b25679863",
       "romfs_size": 0
     },
     {

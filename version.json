@@ -1,8 +1,8 @@
 {
-    "name":  "Minish Cap - Switch Community",
-    "version":  "1.0.1",
-    "author":  "Switch Community contributors",
-    "region":  "USA",
-    "rom_header":  "BZME",
-    "rom_sha1":  "b4bd50e4131b027c334547b4524e2dbbd4227130"
+  "name": "Minish Cap - Switch Community",
+  "version": "1.0.2",
+  "author": "Switch Community contributors",
+  "region": "USA",
+  "rom_header": "BZME",
+  "rom_sha1": "b4bd50e4131b027c334547b4524e2dbbd4227130"
 }
