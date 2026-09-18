@@ -92,3 +92,8 @@ Primeira versão local da Switch Community Edition. A publicação no GitHub é 
 
 Registrar aqui cada mudança depois de implementada, com a região testada e o
 resultado da validação. Os planos ficam em [ROADMAP.md](ROADMAP.md).
+# 1.0.3
+
+- Corrigido o fluxo de atualizacao no menu: mostra versao instalada, versao remota e erros de rede.
+- Adicionada pagina dedicada para verificar e baixar atualizacoes; o NRO baixado e aplicado no proximo inicio.
+- Menu Community reorganizado com painel verde/dourado, moldura interna e rodape de controles.

@@ -39,6 +39,12 @@ void Port_DebugAction_HealFull(void);
 int Port_Save_CreateBackup(void);
 char* Port_BugReport_Capture(const char* reason);
 void Port_CheckForUpdates(struct SDL_Window* window);
+int Port_Update_Check(void);
+int Port_Update_Download(void);
+const char* Port_Update_CurrentVersion(void);
+const char* Port_Update_LatestVersion(void);
+const char* Port_Update_Status(void);
+int Port_Update_IsAvailable(void);
 int Port_Save_RestoreLatestBackup(void);
 void Port_DebugAction_MaxRupees(void);
 void Port_DebugAction_MaxShells(void);
@@ -826,6 +832,34 @@ MenuPage BuildSaveStatesPage(void) {
     return p;
 }
 
+MenuPage BuildUpdatesPage(void) {
+    MenuPage p;
+    p.title = "ATUALIZACOES";
+    p.items.push_back({"Verificar agora", []() {
+        int result = Port_Update_Check();
+        Toast(result > 0 ? "Atualizacao disponivel" : (result == 0 ? "Voce ja esta atualizado" : "Falha; veja update.log"));
+    }});
+    MenuItem current;
+    current.labelFn = []() { return std::string("Instalada: ") + Port_Update_CurrentVersion(); };
+    current.action = []() {};
+    p.items.push_back(std::move(current));
+    MenuItem remote;
+    remote.labelFn = []() { return std::string("Remota: ") + Port_Update_LatestVersion(); };
+    remote.action = []() {};
+    p.items.push_back(std::move(remote));
+    MenuItem status;
+    status.labelFn = []() { return std::string("Status: ") + Port_Update_Status(); };
+    status.action = []() {};
+    p.items.push_back(std::move(status));
+    MenuItem install;
+    install.labelFn = []() { return Port_Update_IsAvailable() ? "Baixar e instalar" : "Baixar: verifique primeiro"; };
+    install.action = []() { Toast(Port_Update_Download() ? "Baixado; reinicie o jogo" : "Nenhuma atualizacao pronta"); };
+    p.items.push_back(std::move(install));
+    p.items.push_back({"Canal: estavel", []() { Toast("Canal estavel selecionado"); }});
+    p.items.push_back({"<- Voltar", []() { Pop(); }});
+    return p;
+}
+
 MenuPage BuildCommunityPage(void) {
     MenuPage p; p.title = "MINISH CAP COMMUNITY";
     p.items.push_back({"Imagem / Image", [](){ Push(BuildDisplaySettingsPage()); }});
@@ -853,7 +887,7 @@ MenuPage BuildCommunityPage(void) {
         Push(std::move(saves));
     }});
     p.items.push_back({"Diagnostico / Diagnostics", [](){ char* r=Port_BugReport_Capture("menu"); if(r) free(r); Toast("Relatorio preparado"); }});
-    p.items.push_back({"Atualizacoes / Updates", [](){ Port_CheckForUpdates(NULL); Toast("Verificacao iniciada"); }});
+ p.items.push_back({"Atualizacoes / Updates", [](){ Push(BuildUpdatesPage()); }});
     p.items.push_back({"Conquistas / Achievements", [](){ Toast("RetroAchievements no menu Display"); }});
     p.items.push_back({"Ajuda / Help", [](){
         MenuPage help; help.title = "AJUDA";
@@ -1444,10 +1478,14 @@ extern "C" void Port_DebugMenu_Render(SDL_Renderer* renderer, int winW, int winH
 
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
  /* Ezlo green with a parchment panel and gold selection accents. */
- SDL_SetRenderDrawColor(renderer, 14, 35, 24, 232);
+    SDL_SetRenderDrawColor(renderer, 14, 35, 24, 232);
     SDL_RenderFillRect(renderer, &box);
- SDL_SetRenderDrawColor(renderer, 221, 193, 112, 255);
+    SDL_SetRenderDrawColor(renderer, 221, 193, 112, 255);
     SDL_RenderRect(renderer, &box);
+    SDL_FRect inner = {box.x + charW * 0.35f, box.y + charW * 0.35f,
+                       box.w - charW * 0.7f, box.h - charW * 0.7f};
+    SDL_SetRenderDrawColor(renderer, 39, 76, 48, 210);
+    SDL_RenderRect(renderer, &inner);
 
     const float textX = box.x + padX;
     float y = box.y + padY;
@@ -1499,4 +1537,7 @@ extern "C" void Port_DebugMenu_Render(SDL_Renderer* renderer, int winW, int winH
         Tr("Enter select  L/R cycle  Esc back",
            "Enter seleciona  L/R altera  Esc volta",
            "Enter selecciona  L/R cambia  Esc atras"));
+    y += kRowPitch;
+    SDL_SetRenderDrawColor(renderer, 221, 193, 112, 255);
+    SDL_RenderDebugText(renderer, textX, y, "A confirmar    B voltar");
 }
