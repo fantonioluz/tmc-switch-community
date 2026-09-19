@@ -415,6 +415,11 @@ void ProjectileUpdate(Entity* entity) {
     }
 
     /* Step 4: Dispatch to projectile handler */
+    if (entity->id >= (sizeof(sProjectileFns) / sizeof(sProjectileFns[0])) ||
+        sProjectileFns[entity->id] == NULL) {
+        DeleteThisEntity();
+        return;
+    }
     if (entity->id < (sizeof(sProjectileFns) / sizeof(sProjectileFns[0]))) {
         sProjectileFns[entity->id](entity);
         /* Step 5: Clear CONTACT_NOW */

@@ -10,6 +10,13 @@ const ProjectileDefinition* GetProjectileDefinition(Entity*);
 bool32 LoadProjectileSprite(Entity*, const ProjectileDefinition*);
 
 const ProjectileDefinition* GetProjectileDefinition(Entity* this) {
+    /* Fast travel can carry a projectile slot across the room reset.  A
+     * stale slot is still marked PROJECTILE, but its variant byte may no
+     * longer belong to the projectile family (Lake Hylia reproduced id=0,
+     * type=8).  Never index ROM-backed definition tables blindly. */
+    if (this->id >= 37 || (this->id == 0 && this->type >= 5)) {
+        return NULL;
+    }
     const ProjectileDefinition* definition = &gProjectileDefinitions[this->id];
     if (definition->gfx == 0xffff) {
         definition = &definition->ptr.definition[this->type];
@@ -20,6 +27,9 @@ const ProjectileDefinition* GetProjectileDefinition(Entity* this) {
 bool32 ProjectileInit(Entity* this) {
     if ((this->flags & ENT_DID_INIT) == 0) {
         const ProjectileDefinition* definition = GetProjectileDefinition(this);
+        if (definition == NULL) {
+            return FALSE;
+        }
         if (LoadProjectileSprite(this, definition) == FALSE) {
             return FALSE;
         }

@@ -97,3 +97,7 @@ resultado da validação. Os planos ficam em [ROADMAP.md](ROADMAP.md).
 - Corrigido o fluxo de atualizacao no menu: mostra versao instalada, versao remota e erros de rede.
 - Adicionada pagina dedicada para verificar e baixar atualizacoes; o NRO baixado e aplicado no proximo inicio.
 - Menu Community reorganizado com painel verde/dourado, moldura interna e rodape de controles.
+# 1.0.4
+
+- Corrige crash ao usar a Ocarina para viajar rapidamente ao Lake Hylia.
+- Descarta slots de projéteis inválidos deixados durante a transição de área.
